@@ -101,6 +101,25 @@ def normalize_memory(items: Any) -> list[dict[str, Any]]:
     return rows
 
 
+def memory_frequency_summary(inventory: dict | None) -> str:
+    """Summarize firmware-reported module speeds without inventing a system clock."""
+    sticks = [row for row in ((inventory or {}).get('ram_sticks') or []) if isinstance(row, dict)]
+    if not sticks:
+        return 'Não informada'
+    for field, suffix in (('configured_mhz', 'config.'), ('speed_mhz', 'nominal')):
+        speeds = [row.get(field) for row in sticks]
+        valid = [int(value) for value in speeds if isinstance(value, (int, float)) and
+                 not isinstance(value, bool) and value > 0]
+        if not valid:
+            continue
+        unique = sorted(set(valid))
+        if len(unique) > 1:
+            return f'{unique[0]}–{unique[-1]} MHz (módulos)'
+        qualifier = suffix if len(valid) == len(sticks) else 'parcial'
+        return f'{unique[0]} MHz ({qualifier})'
+    return 'Não informada'
+
+
 def _collect_windows() -> dict:
     cpu = native_windows_query("Get-CimInstance Win32_Processor | Select-Object Name,Manufacturer,NumberOfCores,NumberOfLogicalProcessors,MaxClockSpeed,CurrentClockSpeed,SocketDesignation,L2CacheSize,L3CacheSize | ConvertTo-Json -Compress -Depth 3", 20)
     mem = native_windows_query("Get-CimInstance Win32_PhysicalMemory | Select-Object Manufacturer,PartNumber,Capacity,Speed,ConfiguredClockSpeed,SMBIOSMemoryType,MemoryType,DeviceLocator,BankLabel | ConvertTo-Json -Compress -Depth 3", 20)

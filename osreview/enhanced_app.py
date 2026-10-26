@@ -500,14 +500,15 @@ class OSReviewAppV5(base.OSReviewApp):
         surface.pack(fill='both',expand=True,padx=1,pady=1)
         base.ui_label(surface,'●  OSReview — Status atual',12,base.WHITE,True).pack(anchor='w',padx=14,pady=(11,7))
         self.hover_values={}
-        for k,caption in [('cpu','CPU'),('ram','Memória RAM'),('temp','Temperatura CPU'),('gpu','GPU'),('disk','Armazenamento')]:
+        for k,caption in [('cpu','CPU'),('ram','Memória RAM'),('temp','Temperatura CPU'),
+                          ('gpu','GPU'),('disk','Armazenamento'),('net','Rede ↓/↑')]:
             row=tk.Frame(surface,bg=base.PANEL);row.pack(fill='x',padx=14,pady=2)
             base.ui_label(row,caption,10,base.MUTED).pack(side='left')
             value=base.ui_label(row,'Indisponível',10,base.BLUE,True)
             value.pack(side='right')
             self.hover_values[k]=value
         base.ui_label(surface,'Duplo clique no ícone para abrir.',9,base.MUTED).pack(anchor='w',padx=14,pady=(8,12))
-        self.popup.geometry('282x211+0+0')
+        self.popup.geometry('310x236+0+0')
 
     def _start_v05_job(self, kind, func, *args):
         def worker():
@@ -660,7 +661,7 @@ class OSReviewAppV5(base.OSReviewApp):
             # Auto-hide when no hover callback received, unless pointing at popup.
             x,y=self.winfo_pointerxy()
             px,py=self.popup.winfo_rootx(),self.popup.winfo_rooty()
-            if not (px<=x<=px+282 and py<=y<=py+211):self._hide_hover()
+            if not (px<=x<=px+310 and py<=y<=py+236):self._hide_hover()
         if not self.shutdown.is_set():self.after(180,self._poll_v05)
 
     def _text_for_job(self,kind,msg):
@@ -1222,9 +1223,9 @@ class OSReviewAppV5(base.OSReviewApp):
         self._update_mini()
         x,y=self.winfo_pointerxy()
         screen_w, screen_h=self.winfo_screenwidth(),self.winfo_screenheight()
-        x=min(max(0,x-260),max(0,screen_w-290))
-        y=min(max(0,y-224),max(0,screen_h-218))
-        self.popup.geometry(f'282x211+{x}+{y}')
+        x=min(max(0,x-288),max(0,screen_w-318))
+        y=min(max(0,y-249),max(0,screen_h-243))
+        self.popup.geometry(f'310x236+{x}+{y}')
         self.popup.deiconify()
         self.popup.lift()
 

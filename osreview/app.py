@@ -22,6 +22,7 @@ from osreview.services.benchmark import cpu_benchmark, memory_benchmark, Benchma
 from osreview.services.configuration import ConfigStore, configure_system_startup, get_system_startup_status
 from osreview.services.diagnostics import DiagnosticsEngine
 from osreview.services.history import HistoryStore
+from osreview.services.hardware_deep import memory_frequency_summary
 from osreview.services.system_monitor import SystemMonitor
 from osreview.services.tray import TrayController
 from osreview.services.windows_health import collect_windows_health
@@ -75,6 +76,15 @@ def set_text(widget, text):
     widget.configure(state='disabled')
 
 
+def ram_card_detail(sample: dict[str, Any], inventory: dict | None) -> str:
+    available = sample.get('memory_available_gb')
+    total = sample.get('memory_total_gb')
+    capacity = (f'{available:.1f} / {total:.1f} GB'
+                if isinstance(available, (int, float)) and isinstance(total, (int, float))
+                else 'Indisponível')
+    return f'Disponível: {capacity}\nFreq.: {memory_frequency_summary(inventory)}'
+
+
 class OSReviewApp(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -116,6 +126,7 @@ class OSReviewApp(tk.Tk):
         self.navbuttons: dict[str, tk.Button] = {}
         self.metrics: dict[str, tuple[tk.Label, tk.Label, tk.Canvas]] = {}
         self.tray = TrayController(self.events)
+        self.bind('<Unmap>', self._on_unmap, add='+')
 
         self._style_tree()
         self._layout()
@@ -684,7 +695,7 @@ class OSReviewApp(tk.Tk):
             ('Iniciar junto com o sistema — usuário atual', self.var_start, self.set_startup),
         ]
         if platform.system() == 'Windows':
-            options_entries.insert(1, ('Minimizar para a bandeja ao fechar (Windows)', self.var_tray, self.set_close_tray))
+            options_entries.insert(1, ('Minimizar ou fechar para a bandeja (Windows)', self.var_tray, self.set_close_tray))
         for label, var, callback in options_entries:
             tk.Checkbutton(options, text=label, variable=var, command=callback,
                            bg=PANEL, fg=WHITE, selectcolor=PANEL2, activebackground=PANEL,
@@ -845,7 +856,9 @@ class OSReviewApp(tk.Tk):
             return f'{x:.1f}{unit}' if isinstance(x, (float, int)) else 'Indisp.'
         vals = {
             'cpu': (fmt(s['cpu_percent'], '%'), f"{fmt(s['cpu_freq_mhz'], ' MHz')}  •  {fmt(s['cpu_temp_c'], '°C')}", s['cpu_percent'], RED),
-            'ram': (fmt(s['memory_percent'], '%'), f"{s['memory_used_gb']} / {s['memory_total_gb']} GB", s['memory_percent'], BLUE),
+            'ram': (fmt(s['memory_percent'], '%'),
+                    ram_card_detail(s, getattr(self, 'hardware_detail', None)),
+                    s['memory_percent'], BLUE),
             'disk': (fmt(s['disk_percent'], '%'), f"E/S: ↓{s['disk_read_mb_s']} ↑{s['disk_write_mb_s']} MB/s", s['disk_percent'], YELLOW),
             'gpu': (fmt(s['gpu_percent'], '%') if s['gpu_percent'] is not None else ('Detectada' if self.inventory and self.inventory.get('gpus') else '—'), (self.inventory['gpus'][0]['name'][:24] if self.inventory and self.inventory.get('gpus') else 'Sem inventário gráfico'), s['gpu_percent'] or 0, PURPLE),
             'network': (f"↓ {s['net_recv_mb']:.2f}", f"↑ {s['net_sent_mb']:.2f} MB/s", min(s['net_recv_mb'] * 6, 100), GREEN),
@@ -1061,6 +1074,15 @@ class OSReviewApp(tk.Tk):
     def set_close_tray(self):
         self.config_store.set('close_to_tray', self.var_tray.get())
         self.settings_status.configure(text='Preferência de minimização salva.')
+
+    def _on_unmap(self, event):
+        if event.widget is self and not self.shutdown.is_set():
+            self.after_idle(self._minimize_to_tray)
+
+    def _minimize_to_tray(self):
+        if (self.winfo_exists() and self.state() == 'iconic' and
+                self.tray.available and self.tray.icon and self.var_tray.get()):
+            self.withdraw()
 
     def set_startup(self):
         desired = self.var_start.get()

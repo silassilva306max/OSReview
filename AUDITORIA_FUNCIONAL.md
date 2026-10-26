@@ -11,6 +11,7 @@ no navegador, e recursos online só são usados quando o usuário os solicita.
 | Inicialização | Executável empacotado abriu a janela nativa no Windows 11 x64; `--diagnostico` terminou com código 0 | Funciona nesta máquina |
 | Visão geral e navegação | Telas abertas pela interface, incluindo Energia e Processos | Funciona nesta máquina |
 | Processos | 288 processos acessíveis exibidos; busca/ordenação disponíveis; atualização agora preserva seleção e posição e há barra de rolagem | Funciona nesta máquina após correção, sujeito à permissão de cada processo |
+| RAM | `psutil` reportou 6,43 GB disponíveis de 15,69 GB; `Win32_PhysicalMemory` reportou 3200 MHz configurados para o módulo instalado | Coleta real verificada em processos isolados; novo texto do card validado por teste automatizado, ainda sem inspeção visual do último build |
 | Sensores | `SensorBridge.exe` retornou 6 dispositivos, 50 sensores válidos e 34 sem valor sem elevação; nenhuma temperatura válida | Integração inicia, mas a temperatura não está disponível nesta sessão |
 | Energia e explorador de sensores | UI exibiu CPU/GPU/SSD como `Indisponível`, potência sem medição confiável e origem das leituras; explorador abriu | Não inventa temperatura ou watts quando faltam leituras |
 | Regras térmicas | Testes automatizados cobrem exclusão de limites de alerta e `Distance to TjMax`; painel compacto passou a usar somente temperatura real e amostra recente | Verificado por testes de regressão, sem temperatura física disponível nesta sessão |
@@ -51,6 +52,9 @@ uma instalação limpa.
    padrão, podem ser capturados manualmente ou atualizados automaticamente.
    A renderização dos cards de detalhes ainda recria widgets ao atualizar.
 9. **macOS:** não há `.app`/DMG compilado ou validado nesta máquina Windows.
+10. **Bandeja no último build:** o fluxo de minimizar e o painel ao passar o
+    mouse foram alterados. A abertura visual do novo executável aguarda o Avast
+    concluir sua análise, conforme preferência do usuário.
 
 ## Próximas evoluções, por prioridade
 

@@ -1,5 +1,7 @@
 # v0.9.0 RC — build Windows x64 e estabilização
 
+- Card de memória agora mostra capacidade disponível/total e frequência configurada dos módulos quando o Windows a informa; sinaliza frequência nominal, mista ou ausente com clareza.
+- Minimizar a janela envia o app para a bandeja quando essa opção está ativa; painel ao passar o mouse mostra também o tráfego de rede.
 - Compilados `OSReview.exe`, ponte .NET 8 self-contained e instalador Inno Setup em Windows x64.
 - Corrigidos os testes de fallback de velocidade, estado de rede sem gateway coletado e leitura UTF-8 do instalador macOS.
 - Removida a consulta opcional de hotfixes por WMI que provocou falha nativa no Python 3.14 deste ambiente.

@@ -30,6 +30,7 @@ class Sample:
     memory_percent: float
     memory_used_gb: float
     memory_total_gb: float
+    memory_available_gb: float
     swap_percent: float
     disk_percent: float
     disk_used_gb: float
@@ -165,6 +166,7 @@ class SystemMonitor:
                       cpu_freq_mhz=round(frequency.current, 0) if frequency else None,
                       cpu_temp_c=self._temp(), memory_percent=round(vm.percent, 1),
                       memory_used_gb=gb(vm.used), memory_total_gb=gb(vm.total),
+                      memory_available_gb=gb(vm.available),
                       swap_percent=round(psutil.swap_memory().percent, 1),
                       disk_percent=round(100 * disk.used / disk.total, 1),
                       disk_used_gb=gb(disk.used), disk_total_gb=gb(disk.total), **gpu, **values)

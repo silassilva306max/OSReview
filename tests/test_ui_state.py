@@ -2,8 +2,9 @@
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 
-from osreview.app import OSReviewApp
+from osreview.app import OSReviewApp, ram_card_detail
 from osreview.enhanced_app import OSReviewAppV5
+from osreview.services.hardware_deep import memory_frequency_summary
 
 
 class Value:
@@ -101,3 +102,35 @@ def test_compact_panel_ignores_temperature_metadata_and_stale_values():
     app.power_detail['collected_at'] = (datetime.now()-timedelta(minutes=2)).isoformat()
     OSReviewAppV5._update_mini(app)
     assert label.text == 'Indisponível'
+
+
+def test_minimize_to_tray_only_when_icon_is_ready_and_option_enabled():
+    root = SimpleNamespace(
+        winfo_exists=lambda: True, state=lambda: 'iconic',
+        tray=SimpleNamespace(available=True, icon=object()), var_tray=Value(True),
+        withdrawn=False,
+    )
+    root.withdraw = lambda: setattr(root, 'withdrawn', True)
+    OSReviewApp._minimize_to_tray(root)
+    assert root.withdrawn
+    root.withdrawn = False
+    root.var_tray = Value(False)
+    OSReviewApp._minimize_to_tray(root)
+    assert not root.withdrawn
+
+
+def test_ram_card_shows_available_capacity_and_configured_frequency():
+    sample = {'memory_available_gb': 6.25, 'memory_total_gb': 15.69,
+              'memory_used_gb': 9.44}
+    inventory = {'ram_sticks': [
+        {'configured_mhz': 4800, 'speed_mhz': 5600},
+        {'configured_mhz': 4800, 'speed_mhz': 5600},
+    ]}
+    assert ram_card_detail(sample, inventory) == (
+        'Disponível: 6.2 / 15.7 GB\nFreq.: 4800 MHz (config.)')
+    assert memory_frequency_summary({'ram_sticks': [
+        {'configured_mhz': 3200}, {'configured_mhz': 4800}]}) == (
+        '3200–4800 MHz (módulos)')
+    assert memory_frequency_summary({'ram_sticks': [
+        {'configured_mhz': None, 'speed_mhz': 5600}]}) == '5600 MHz (nominal)'
+    assert 'Não informada' in ram_card_detail(sample, None)
