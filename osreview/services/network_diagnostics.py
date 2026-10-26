@@ -156,7 +156,7 @@ def analyze_network(interfaces: list[dict], dns: dict, gateways: dict,
             device_issues.append('Não foi identificado IPv4 utilizável nem IPv6 nas interfaces ativas.')
         else:
             device_issues.append('Sem IPv4 utilizável detectado; acesso pode depender de IPv6.')
-    if valid_ipv4 and platform.system() == 'Windows' and not any(gateways.get(n['name']) for n in valid_ipv4):
+    if valid_ipv4 and platform.system() == 'Windows' and gateways and not any(gateways.get(n['name']) for n in valid_ipv4):
         device_issues.append('Nenhuma rota IPv4 padrão identificada nas interfaces com IPv4 válido.')
     if connectivity is not None:
         if connectivity.get('dns') is False:

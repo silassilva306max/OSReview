@@ -1,8 +1,8 @@
-name: OSReview 0.8.1 - Criar instaladores nativos
+name: OSReview 0.9.0 RC - Criar instaladores nativos
 on:
   workflow_dispatch:
   push:
-    tags: ["v0.8.1"]
+    tags: ["v0.9.0-rc*"]
 permissions:
   contents: read
 jobs:
@@ -25,18 +25,24 @@ jobs:
       - name: Compilar executavel independente e instalador final
         shell: cmd
         run: call build\Gerar_Instalador_Windows_x64.bat
+      - name: Smoke test do executável empacotado
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath (Resolve-Path 'dist/OSReview/OSReview.exe') -ArgumentList '--diagnostico' -PassThru -Wait -WindowStyle Hidden -WorkingDirectory (Get-Location).Path
+          if ($process.ExitCode -ne 0) { throw "OSReview.exe --diagnostico falhou: $($process.ExitCode)" }
+          if (-not (Test-Path 'OSReview_suporte_inicializacao.zip')) { throw 'Relatório de diagnóstico não gerado' }
       - name: Inspecionar instalador e SHA256
         shell: pwsh
         run: |
-          $files = @(Get-ChildItem release/OSReview-Setup-0.8.1-Windows-x64-*.exe)
+          $files = @(Get-ChildItem release/OSReview-Setup-0.9.0-Windows-x64-*.exe)
           if ($files.Count -ne 1) { throw "Instalador nao encontrado ou duplicado" }
           Get-FileHash $files[0].FullName -Algorithm SHA256
       - uses: actions/upload-artifact@v4
         with:
-          name: OSReview-0.8.1-Windows-x64-NAO-ASSINADO
+          name: OSReview-0.9.0-Windows-x64-NAO-ASSINADO
           path: |
-            release/OSReview-Setup-0.8.1-Windows-x64-*.exe
-            release/OSReview-Setup-0.8.1-Windows-x64-*.sha256
+            release/OSReview-Setup-0.9.0-Windows-x64-*.exe
+            release/OSReview-Setup-0.9.0-Windows-x64-*.sha256
           if-no-files-found: error
   macos-intel:
     name: macOS Intel - instalador nativo GUI
@@ -51,10 +57,10 @@ jobs:
         run: bash build/Gerar_Instalador_macOS.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: OSReview-0.8.1-macOS-Intel-NAO-NOTARIZADO
+          name: OSReview-0.9.0-macOS-Intel-NAO-NOTARIZADO
           path: |
-            release/OSReview-0.8.1-macOS-x86_64-*.dmg
-            release/OSReview-0.8.1-macOS-x86_64-*.sha256
+            release/OSReview-0.9.0-macOS-x86_64-*.dmg
+            release/OSReview-0.9.0-macOS-x86_64-*.sha256
           if-no-files-found: error
   macos-apple-silicon:
     name: macOS Apple Silicon - instalador nativo GUI
@@ -71,8 +77,8 @@ jobs:
         run: bash build/Gerar_Instalador_macOS.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: OSReview-0.8.1-macOS-AppleSilicon-NAO-NOTARIZADO
+          name: OSReview-0.9.0-macOS-AppleSilicon-NAO-NOTARIZADO
           path: |
-            release/OSReview-0.8.1-macOS-arm64-*.dmg
-            release/OSReview-0.8.1-macOS-arm64-*.sha256
+            release/OSReview-0.9.0-macOS-arm64-*.dmg
+            release/OSReview-0.9.0-macOS-arm64-*.sha256
           if-no-files-found: error

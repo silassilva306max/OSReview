@@ -70,7 +70,7 @@ final class OSReviewInstaller: NSObject, NSApplicationDelegate {
         ])
 
         let confirm = NSAlert()
-        confirm.messageText = "Instalar OSReview 0.8.1"
+        confirm.messageText = "Instalar OSReview 0.9.0"
         confirm.informativeText = "Destino: \(target.path)\n\nO aplicativo já inclui suas bibliotecas. Não instalará Python nem .NET no Mac."
         confirm.alertStyle = .informational
         confirm.accessoryView = accessory

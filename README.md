@@ -1,4 +1,4 @@
-# OSReview v0.8.1
+# OSReview v0.9.0 RC
 
 Sistema de diagnóstico de hardware, processos, sensores, rede, eventos, energia e FPS.
 
@@ -18,8 +18,11 @@ O sensor LibreHardwareMonitorLib é biblioteca de terceiros, com licença MPL 2.
 e créditos na interface. A presença de assinatura válida deve ser verificada
 por Authenticode (Windows), Developer ID e notarização (Mac).
 
-**Disponibilidade:** o pacote-fonte permite gerar executáveis nos runners nativos,
-mas não é, por si, um instalador. Sensores exclusivos do Windows e FPS PresentMon
+**Disponibilidade:** o instalador Windows x64 foi compilado e verificado em
+Windows 11. Ele está em `release/` no workspace local. A compilação macOS
+depende dos runners nativos. Sensores exclusivos do Windows e FPS PresentMon
 não são oferecidos como recursos nativos do Mac.
+
+Consulte `STATUS_DE_ENTREGA.md` para testes e limitações.
 
 Leia: `SEGURANCA_E_PRIVACIDADE.md`, `GUIA_INSTALACAO.md` e `CHANGELOG.md`.

@@ -70,11 +70,11 @@ def collect_windows_health() -> dict[str, Any]:
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass
 
-    from .windows_native import query_wmi, collect_events
-    hotfix = query_wmi('Win32_QuickFixEngineering',
-        ('HotFixID','InstalledOn','Description'), limit=20)
-    if hotfix:
-        results['recent_hotfixes'] = hotfix[:5]
+    from .windows_native import collect_events
+    # Win32_QuickFixEngineering has crashed the Python 3.14/pywin32 collector
+    # on Windows in the baseline regression run. Keep this optional field empty
+    # until it has an isolated, verified implementation.
+    results['message'] += ' Histórico de hotfixes: consulte Atualizações.'
     records = collect_events(max_events=7, logs=('System',), days=1)
     if records is not None:
         results['errors'] = [{**r, 'Message': (r.get('Message') or '')[:320]} for r in records]

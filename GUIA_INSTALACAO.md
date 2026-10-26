@@ -1,10 +1,10 @@
-# OSReview v0.8.1 — Instalação GUI sem Python e sem Terminal
+# OSReview v0.9.0 RC — Instalação GUI sem Python e sem Terminal
 
 ## USUÁRIO FINAL (somente binários compilados)
 
 ### Windows 10/11 x64
 
-1. Duplo clique em **OSReview-Setup-0.8.1-Windows-x64.exe**.
+1. Duplo clique em **OSReview-Setup-0.9.0-Windows-x64-NAO-ASSINADO.exe**.
 2. Escolha a pasta em que o OSReview será instalado (padrão: AppData do usuário).
 3. Marque, se desejar, **Criar atalho na área de trabalho** e/ou **Iniciar com o Windows**.
 4. Conclua o assistente. Abra o app por **OSReview.exe**, atalho ou menu Iniciar.
@@ -16,9 +16,9 @@ que baixar o runtime durante a instalação: funciona offline, sem instaladores
 adicionais e sem PowerShell. Atualizações de segurança do runtime embutido
 necessitam nova versão do aplicativo distribuída pelo editor.
 
-Acesso a certos sensores pode exigir permissão administrativa aprovada pelo
-usuário via UAC. O OSReview não desativa UAC, Defender, Avast nem integridade
-de memória para contornar bloqueios.
+Alguns sensores podem ficar indisponíveis sem privilégios administrativos. Esta
+versão não eleva automaticamente a ponte de sensores. O OSReview não desativa
+UAC, Defender, Avast nem integridade de memória para contornar bloqueios.
 
 ### macOS Intel ou Apple Silicon
 
@@ -53,8 +53,8 @@ runners Windows x64, macOS Intel e macOS Apple Silicon por **Run workflow**.
 O resultado são 3 artefatos de instalação, após compilação bem-sucedida.
 Não são assinados/notarizados automaticamente sem certificados do editor.
 
-### Limites da validação neste pacote
-Foram testadas as regras do projeto e a integridade do ZIP em Linux. O build
-Win/macOS e a instalação end-to-end dependem de runners nativos. O projeto não
-contém binários nativos já compilados e nenhum resultado deve ser tratado como
-instalador validado antes desse teste.
+### Limites da validação nesta versão
+O executável e o instalador foram compilados no Windows 11 x64. O executável
+passou no modo de diagnóstico e abriu a janela principal. A instalação e
+desinstalação em um Windows limpo sem Python e .NET continuam pendentes, assim
+como os builds macOS Intel/ARM. Consulte `STATUS_DE_ENTREGA.md`.

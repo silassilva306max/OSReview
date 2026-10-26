@@ -395,8 +395,8 @@ class OSReviewAppV5(base.OSReviewApp):
                       10,base.MUTED,bg=base.BG,wraplength=950,justify='left').pack(anchor='w',pady=(0,8))
         self.fps_text=base.text_area(fps,12);self.fps_text.pack(fill='both',expand=True)
         base.set_text(self.fps_text,'Clique Ativar FPS depois de abrir o jogo. O OSReview usa o motor '
-            'PresentMon CLI 2.6.0 empacotado e verificado por SHA-256. Se ausente, execute '
-            'fps_engine\\Preparar_Motor_FPS_Windows.bat; não instale outro programa. '
+            'PresentMon CLI 2.6.0 empacotado e verificado por SHA-256. Se o motor estiver ausente, '
+            'reinstale o OSReview a partir do instalador oficial. '
             'Contadores podem não funcionar em todos os jogos e exigem Windows.')
         self.fps_overlay=None
         self.fps_overlay_label=None

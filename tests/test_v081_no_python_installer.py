@@ -28,8 +28,8 @@ def test_dotnet_selfcontained_compiled_only_on_builder():
 
 
 def test_mac_installer_native_not_terminal():
-    src = (ROOT/'installer/macos/NativeInstaller/main.swift').read_text()
-    build = (ROOT/'build/Gerar_Instalador_macOS.sh').read_text()
+    src = (ROOT/'installer/macos/NativeInstaller/main.swift').read_text(encoding='utf-8')
+    build = (ROOT/'build/Gerar_Instalador_macOS.sh').read_text(encoding='utf-8')
     assert 'NSOpenPanel()' in src
     assert 'NSAlert()' in src
     assert 'createSymbolicLink' in src

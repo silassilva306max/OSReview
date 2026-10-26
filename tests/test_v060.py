@@ -62,6 +62,7 @@ def test_speedtest_no_network_dependency(monkeypatch):
     from osreview.services import network_diagnostics as net
     def fail(*args,**kwargs):raise URLError('Sem rede')
     monkeypatch.setattr('urllib.request.urlopen',fail)
+    monkeypatch.setattr(net, '_speedtest_ookla', fail)
     result=run_speedtest()
     assert not result['ok']
     assert 'error' in result
