@@ -1,0 +1,17 @@
+OSReview v0.8.1 — IMPORTANTE
+
+Este ZIP é o CÓDIGO-FONTE / PACOTE PARA COMPILAÇÃO, NÃO É UM INSTALADOR.
+
+NÃO é necessário instalar Python nem .NET no computador de quem usa o OSReview.
+Não execute arquivos .bat para abrir o OSReview.
+
+O usuário final receberá:
+  Windows: OSReview-Setup-0.8.1-Windows-x64.exe
+  Mac Intel: OSReview-0.8.1-macOS-x86_64.dmg
+  Mac Apple Silicon: OSReview-0.8.1-macOS-arm64.dmg
+
+Esses instaladores só existirão DEPOIS de realizar a compilação nativa com o
+GitHub Actions ou nos ambientes Windows/Mac indicados em GUIA_INSTALACAO.md.
+
+Scripts na pasta build são exclusivos de quem desenvolve e compila o aplicativo.
+Não há executável compilado e assinado neste pacote-fonte.

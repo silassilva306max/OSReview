@@ -1,0 +1,26 @@
+OSReview — Aviso sobre biblioteca de terceiros
+
+O OSReview é um aplicativo independente, e NÃO é criado, distribuído ou
+endossado pela equipe LibreHardwareMonitor.
+
+Motor externo opcional de sensores: LibreHardwareMonitorLib 0.9.6
+Titular e autores: LibreHardwareMonitor e seus contribuidores.
+Copyright (c) LibreHardwareMonitor and Contributors.
+Licença do projeto: Mozilla Public License 2.0 (MPL-2.0).
+
+Repositório OFICIAL: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor
+Pacote oficial: https://www.nuget.org/packages/LibreHardwareMonitorLib/0.9.6
+Licença (texto completo): licenses/MPL-2.0.txt
+Licenças adicionais: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/master/THIRD-PARTY-NOTICES.txt
+
+O pacote LibreHardwareMonitorLib e seus componentes de terceiros podem
+incluir licenças adicionais. Verifique os avisos correspondentes no
+repositório acima e no pacote NuGet baixado durante a compilação.
+
+O OSReview referencia a biblioteca via PackageReference no projeto .NET.
+O instalador Windows compila a ponte com dotnet restore/publish ao executar
+o script de build. O código-fonte da biblioteca não é apresentado como
+trabalho dos autores do OSReview.
+
+Valores dependem dos sensores suportados, drivers e privilégios locais.
+Sensores ausentes são exibidos como indisponíveis.

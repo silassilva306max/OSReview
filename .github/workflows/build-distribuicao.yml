@@ -1,0 +1,78 @@
+name: OSReview 0.8.1 - Criar instaladores nativos
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v0.8.1"]
+permissions:
+  contents: read
+jobs:
+  windows-x64:
+    name: Windows x64 - GUI Inno Setup
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: 'x64'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Inno Setup build tool (somente CI)
+        shell: pwsh
+        run: choco install innosetup --no-progress --yes
+      - name: Compilar executavel independente e instalador final
+        shell: cmd
+        run: call build\Gerar_Instalador_Windows_x64.bat
+      - name: Inspecionar instalador e SHA256
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem release/OSReview-Setup-0.8.1-Windows-x64-*.exe)
+          if ($files.Count -ne 1) { throw "Instalador nao encontrado ou duplicado" }
+          Get-FileHash $files[0].FullName -Algorithm SHA256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OSReview-0.8.1-Windows-x64-NAO-ASSINADO
+          path: |
+            release/OSReview-Setup-0.8.1-Windows-x64-*.exe
+            release/OSReview-Setup-0.8.1-Windows-x64-*.sha256
+          if-no-files-found: error
+  macos-intel:
+    name: macOS Intel - instalador nativo GUI
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compilar AppKit e DMG
+        run: bash build/Gerar_Instalador_macOS.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OSReview-0.8.1-macOS-Intel-NAO-NOTARIZADO
+          path: |
+            release/OSReview-0.8.1-macOS-x86_64-*.dmg
+            release/OSReview-0.8.1-macOS-x86_64-*.sha256
+          if-no-files-found: error
+  macos-apple-silicon:
+    name: macOS Apple Silicon - instalador nativo GUI
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Confirmar arquitetura
+        run: test "$(uname -m)" = "arm64"
+      - name: Compilar AppKit e DMG
+        run: bash build/Gerar_Instalador_macOS.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: OSReview-0.8.1-macOS-AppleSilicon-NAO-NOTARIZADO
+          path: |
+            release/OSReview-0.8.1-macOS-arm64-*.dmg
+            release/OSReview-0.8.1-macOS-arm64-*.sha256
+          if-no-files-found: error
