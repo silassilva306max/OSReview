@@ -54,7 +54,7 @@ class FPSLive:
             raise ValueError('Informe o nome de um processo executável, como jogo.exe.')
         binary=bundled_presentmon_path()
         if not verify_presentmon(binary):
-            raise RuntimeError('Motor FPS ausente ou SHA-256 diferente do publicado pelo autor. Execute fps_engine\\Preparar_Motor_FPS_Windows.bat.')
+            raise RuntimeError('Motor FPS ausente ou SHA-256 inválido. Reinstale o OSReview a partir do instalador oficial.')
         self.stop()
         args=[str(binary),'--process_name',process_name,'--output_stdout',
               '--no_console_stats','--session_name','OSReviewFPS']

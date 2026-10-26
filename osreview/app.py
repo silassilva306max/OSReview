@@ -357,14 +357,19 @@ class OSReviewApp(tk.Tk):
         self.proc_counter=ui_label(filters,'0 processos',10,MUTED,bg=BG)
         self.proc_counter.pack(side='right')
         cols = ('pid', 'cpu', 'ram', 'state')
-        self.proc_tree = ttk.Treeview(page, columns=cols, show='tree headings', style='OS.Treeview')
+        table = tk.Frame(page, bg=BG)
+        table.pack(fill='both', expand=True)
+        self.proc_tree = ttk.Treeview(table, columns=cols, show='tree headings', style='OS.Treeview')
         self.proc_tree.heading('#0', text='Processo')
         for key, label in [('pid','PID'),('cpu','CPU % total'),('ram','RAM %'),('state','Estado')]:
             self.proc_tree.heading(key, text=label)
         self.proc_tree.column('#0', width=330, minwidth=200)
         for col, width in [('pid',65),('cpu',115),('ram',100),('state',140)]:
             self.proc_tree.column(col, width=width, anchor='center')
-        self.proc_tree.pack(fill='both', expand=True)
+        scrollbar = ttk.Scrollbar(table, orient='vertical', command=self.proc_tree.yview)
+        self.proc_tree.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side='right', fill='y')
+        self.proc_tree.pack(side='left', fill='both', expand=True)
         self.proc_note = ui_label(page, 'A porcentagem de CPU dos processos é normalizada pelo número de CPUs lógicas.',
                                    10, MUTED, bg=BG)
         self.proc_note.pack(anchor='w', pady=12)
@@ -916,17 +921,34 @@ class OSReviewApp(tk.Tk):
                 self.tray.notify('OSReview: atenção necessária', title)
 
     def _refresh_processes(self):
-        for item in self.proc_tree.get_children():
-            self.proc_tree.delete(item)
         query=self.proc_search.get().casefold().strip() if hasattr(self,'proc_search') else ''
         rows=[p for p in self.procs if query in str(p.get('name','')).casefold() or query in str(p.get('pid',''))]
         order=self.proc_sort.get() if hasattr(self,'proc_sort') else 'CPU'
         rows.sort(key={'CPU':lambda p:p.get('cpu',0),'RAM':lambda p:p.get('memory',0),
             'Nome':lambda p:p.get('name','').casefold(),'PID':lambda p:p.get('pid',0)}.get(order,lambda p:p.get('cpu',0)),
             reverse=order in ('CPU','RAM'))
-        for p in rows:
-            self.proc_tree.insert('', 'end', text=p['name'],
-                                  values=(p['pid'], f"{p['cpu']:.1f}", f"{p['memory']:.1f}", p['status']))
+        tree=self.proc_tree
+        position=tree.yview()[0]
+        selected=set(tree.selection())
+        focused=tree.focus()
+        existing=set(tree.get_children())
+        wanted={str(p['pid']) for p in rows}
+        for item in existing-wanted:
+            tree.delete(item)
+        for index,p in enumerate(rows):
+            iid=str(p['pid'])
+            values=(p['pid'], f"{p['cpu']:.1f}", f"{p['memory']:.1f}", p['status'])
+            if iid in existing:
+                tree.item(iid,text=p['name'],values=values)
+                tree.move(iid,'',index)
+            else:
+                tree.insert('',index,iid=iid,text=p['name'],values=values)
+        surviving=selected & wanted
+        if surviving:
+            tree.selection_set(*surviving)
+        if focused in wanted:
+            tree.focus(focused)
+        tree.yview_moveto(position)
         if hasattr(self,'proc_counter'):
             self.proc_counter.configure(text=f'{len(rows)} de {len(self.procs)} processos visíveis')
 

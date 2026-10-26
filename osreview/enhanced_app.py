@@ -1241,9 +1241,16 @@ class OSReviewAppV5(base.OSReviewApp):
             return f'{value:.1f} °C' if isinstance(value,(int,float)) else 'Indisponível'
         cpu_temp=s.get('cpu_temp_c')
         if cpu_temp is None and self.power_detail:
-            for item in self.power_detail.get('groups',{}).get('CPU',[]):
-                if item.get('type','').lower()=='temperature':
-                    cpu_temp=item.get('value');break
+            from datetime import datetime
+            try:
+                age=(datetime.now()-datetime.fromisoformat(
+                    str(self.power_detail.get('collected_at','')))).total_seconds()
+            except (TypeError,ValueError):
+                age=float('inf')
+            if 0 <= age <= 50:
+                measured=temperature_readings(self.power_detail)['CPU']
+                if measured:
+                    cpu_temp=measured.value
         result={'cpu':pct('cpu_percent'),'ram':pct('memory_percent'), 'temp':temp(cpu_temp),
                 'gpu':pct('gpu_percent'), 'disk':pct('disk_percent'),
                 'net':f"↓{s.get('net_recv_mb',0):.1f} / ↑{s.get('net_sent_mb',0):.1f} MB/s"}
