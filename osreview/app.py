@@ -93,12 +93,45 @@ def ram_card_detail(sample: dict[str, Any], inventory: dict | None) -> str:
     return f'Disponível: {capacity}\nFreq.: {memory_frequency_summary(inventory)}'
 
 
+class ScrollablePageContent(tk.Frame):
+    """Keep tall page content accessible when the window has little height."""
+
+    def __init__(self, parent, horizontal=False):
+        super().__init__(parent, bg=BG)
+        self.canvas = tk.Canvas(self, bg=BG, bd=0, highlightthickness=0)
+        if horizontal:
+            self.hscrollbar = ttk.Scrollbar(self, orient='horizontal', command=self.canvas.xview)
+            self.canvas.configure(xscrollcommand=self.hscrollbar.set)
+        self.scrollbar = ttk.Scrollbar(self, orient='vertical', command=self.canvas.yview)
+        self.scrollbar.pack(side='right', fill='y')
+        self.canvas.pack(side='left', fill='both', expand=True)
+        self.body = tk.Frame(self.canvas, bg=BG)
+        self.window = self.canvas.create_window((0, 0), window=self.body, anchor='nw')
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+        self.body.bind('<Configure>', self._update_region)
+        self.canvas.bind('<Configure>', self._resize_body)
+        self.on_width_change = None
+
+    def _update_region(self, _event=None):
+        bounds = self.canvas.bbox('all')
+        if bounds is not None:
+            self.canvas.configure(scrollregion=bounds)
+
+    def _resize_body(self, event):
+        self.canvas.itemconfigure(self.window, width=event.width)
+        if self.on_width_change is not None:
+            self.on_width_change(event.width)
+
+
 class OSReviewApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(f'OSReview | Monitoramento & Diagnóstico — {__version__}')
-        self.geometry('1390x865')
-        self.minsize(1130, 770)
+        screen_width = self.winfo_screenwidth()
+        screen_height = self.winfo_screenheight()
+        self.geometry(f'{min(1390, max(980, screen_width - 40))}x'
+                      f'{min(865, max(600, screen_height - 80))}')
+        self.minsize(980, 600)
         self.configure(bg=BG)
         try:
             base = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parents[1]))
@@ -220,16 +253,20 @@ class OSReviewApp(tk.Tk):
         self.left_status.pack(side='bottom', anchor='w', padx=20, pady=24)
 
         body = tk.Frame(self.root_grid, bg=BG)
+        self.main_body = body
         body.pack(side='left', fill='both', expand=True)
         head = tk.Frame(body, bg=BG)
+        self.main_header = head
         head.pack(fill='x', padx=24, pady=(18, 12))
         ui_label(head, 'Centro de diagnóstico', 22, WHITE, bold=True, bg=BG).pack(side='left')
         self.notice = ui_label(head, 'MÉTRICAS LOCAIS • VERSÕES VIA GITHUB', 9, GREEN, bold=True, bg=BG)
         self.notice.pack(side='right', padx=(12, 3))
 
         metric_row = tk.Frame(body, bg=BG, height=112)
+        self.metric_row = metric_row
         metric_row.pack(fill='x', padx=18, pady=(0, 12))
         metric_row.pack_propagate(False)
+        self.metric_cards = []
         for key, title, color in [
             ('cpu', 'PROCESSADOR', RED), ('ram', 'MEMÓRIA RAM', BLUE),
             ('disk', 'ARMAZENAMENTO', YELLOW), ('gpu', 'GPU / VRAM', PURPLE),
@@ -243,15 +280,21 @@ class OSReviewApp(tk.Tk):
             val.pack(anchor='w', padx=14)
             detail = ui_label(outer, 'Aguardando...', 9, MUTED)
             detail.pack(anchor='w', padx=14, pady=(0, 4))
+            outer.bind('<Configure>', lambda event, item=detail:
+                       item.configure(wraplength=max(82, event.width - 30), justify='left'))
+            self.metric_cards.append((outer, detail))
             bar = tk.Canvas(outer, height=5, bg=EDGE, bd=0, highlightthickness=0)
             bar.pack(fill='x', padx=14, pady=(0, 11))
             self.metrics[key] = (val, detail, bar)
             target = 'hardware' if key == 'gpu' else 'diagnostics'
             for widget in (outer, val, detail, bar):
                 widget.bind('<Button-1>', lambda _evt, t=target: self.switch(t))
+        metric_row.bind('<Configure>', self._resize_metric_cards)
 
-        self.content = tk.Frame(body, bg=BG)
-        self.content.pack(fill='both', expand=True, padx=23, pady=(0, 18))
+        self.content_viewport = ScrollablePageContent(body, horizontal=True)
+        self.content_viewport.pack(fill='both', expand=True, padx=23, pady=(0, 18))
+        self.content_viewport.on_width_change = lambda _width: self._fit_content_page()
+        self.content = self.content_viewport.body
         self._make_dashboard()
         self._make_diagnostics()
         self._make_benchmark()
@@ -265,8 +308,18 @@ class OSReviewApp(tk.Tk):
         self._make_history()
         self._make_settings()
 
+    def _resize_metric_cards(self, event):
+        compact = event.width < 850
+        height = 132 if compact else 112
+        if int(self.metric_row.cget('height')) != height:
+            self.metric_row.configure(height=height)
+        for card, detail in self.metric_cards:
+            detail.configure(wraplength=max(82, card.winfo_width() - 30),
+                             justify='left')
+
     def _page(self, key, heading, subtitle):
         page = tk.Frame(self.content, bg=BG)
+        page.bind('<Configure>', lambda _event: self.after_idle(self._fit_content_page), add='+')
         self.tabs[key] = page
         top = tk.Frame(page, bg=BG)
         top.pack(fill='x', pady=(0, 14))
@@ -284,19 +337,27 @@ class OSReviewApp(tk.Tk):
     def _make_dashboard(self):
         page = self._page('dashboard', 'Visão geral do dispositivo',
                           'Os mesmos dados da área avançada, explicados para todos os níveis de conhecimento.')
-        action = tk.Frame(page, bg=BG)
+        self.dashboard_scroll = ScrollablePageContent(page)
+        self.dashboard_scroll.pack(fill='both', expand=True)
+        self.dashboard_scroll.on_width_change = self._dashboard_width_changed
+        body = self.dashboard_scroll.body
+        action = tk.Frame(body, bg=BG)
+        self.dashboard_action = action
         action.pack(fill='x', pady=(0, 14))
         ui_button(action, 'Executar diagnóstico', self.request_analysis, True).pack(side='left', padx=(0, 10))
         ui_button(action, 'Salvar leitura', self.save_snapshot).pack(side='left', padx=(0, 10))
         ui_button(action, 'Abrir benchmark', lambda: self.switch('benchmark')).pack(side='left')
         ui_button(action, 'Central de soluções', lambda: self.switch('solutions')).pack(side='left', padx=8)
-        cols = tk.Frame(page, bg=BG)
+        cols = tk.Frame(body, bg=BG)
+        self.dashboard_columns = cols
         cols.pack(fill='both', expand=True)
         graph_panel = self._panel(cols, 'MONITORAMENTO EM TEMPO REAL',
                                   'CPU e RAM ao longo das últimas leituras, sem dados simulados.')
+        self.dashboard_graph_panel = graph_panel
         graph_panel.pack(side='left', fill='both', expand=True, padx=(0, 7))
         self.graph = tk.Canvas(graph_panel, bg=BG, height=245, highlightthickness=0)
         self.graph.pack(fill='both', expand=True, padx=16, pady=(4, 12))
+        self.graph.bind('<Configure>', lambda _event: self._draw_graph())
         legend = tk.Frame(graph_panel, bg=PANEL)
         legend.pack(fill='x', padx=16, pady=(0, 15))
         ui_label(legend, '● CPU', 10, RED).pack(side='left')
@@ -304,13 +365,14 @@ class OSReviewApp(tk.Tk):
         self.graph_note = ui_label(graph_panel, 'Coletando informações...', 10, MUTED)
         self.graph_note.pack(anchor='w', padx=16, pady=(0, 13))
         right = self._panel(cols, 'DIAGNÓSTICO EXPLICADO', 'Prioridades e ações sugeridas para o uso atual.')
+        self.dashboard_summary_panel = right
         right.configure(width=390)
         right.pack(side='left', fill='both', padx=(7, 0))
         right.pack_propagate(False)
         self.summary = text_area(right, 18)
         self.summary.pack(fill='both', expand=True, padx=14, pady=(4, 14))
         self.dashboard_modules = {}
-        hub = tk.Frame(page, bg=BG)
+        hub = tk.Frame(body, bg=BG)
         hub.pack(fill='x', pady=(10, 0))
         for key, heading, target in [('security', 'SEGURANÇA', 'security'),
                                      ('drivers', 'DISPOSITIVOS', 'hardware'),
@@ -322,11 +384,38 @@ class OSReviewApp(tk.Tk):
                              font=(FONT, 9, 'bold'))
             widget.pack(side='left', fill='x', expand=True, padx=4)
             self.dashboard_modules[key] = widget
-        bottom = tk.Frame(page, bg=BG)
+        bottom = tk.Frame(body, bg=BG)
         bottom.pack(fill='x', pady=(8, 0))
         ui_label(bottom, 'SIMPLIFICADO', 9, GREEN, bold=True, bg=BG).pack(side='left')
         ui_label(bottom, '    •    ', 9, MUTED, bg=BG).pack(side='left')
         ui_label(bottom, 'AVANÇADO: CPU, GPU, E/S, processos e serviços', 9, PURPLE, bold=True, bg=BG).pack(side='left')
+
+    def _dashboard_width_changed(self, width: int):
+        stacked = width < 850
+        if getattr(self, '_dashboard_stacked', None) == stacked:
+            return
+        self._dashboard_stacked = stacked
+        graph = self.dashboard_graph_panel
+        summary = self.dashboard_summary_panel
+        graph.pack_forget()
+        summary.pack_forget()
+        if stacked:
+            graph.pack(fill='x', pady=(0, 8))
+            summary.pack(fill='x')
+            summary.pack_propagate(True)
+        else:
+            graph.pack(side='left', fill='both', expand=True, padx=(0, 7))
+            summary.configure(width=390)
+            summary.pack(side='left', fill='both', padx=(7, 0))
+            summary.pack_propagate(False)
+        boxes = getattr(self, 'dash_sensor_boxes', ())
+        columns = 2 if stacked else 4
+        for index, box in enumerate(boxes):
+            box.grid(row=index // columns, column=index % columns)
+        if boxes:
+            for column in range(4):
+                self.dash_sensor_area.grid_columnconfigure(column,
+                                                            weight=1 if column < columns else 0)
 
     def _make_diagnostics(self):
         page = self._page('diagnostics', 'Diagnóstico e recomendações',
@@ -346,9 +435,13 @@ class OSReviewApp(tk.Tk):
     def _make_benchmark(self):
         page = self._page('benchmark', 'Benchmark integrado',
                           'CPU de um núcleo ou cópia de RAM, por 3, 5 ou 10 minutos. Compare somente resultados do mesmo método.')
-        outer = tk.Frame(page, bg=BG)
+        self.benchmark_scroll = ScrollablePageContent(page)
+        self.benchmark_scroll.pack(fill='both', expand=True)
+        self.benchmark_scroll.on_width_change = self._benchmark_width_changed
+        outer = tk.Frame(self.benchmark_scroll.body, bg=BG)
         outer.pack(fill='both', expand=True)
         rail = self._panel(outer, 'TIPO DE TESTE')
+        self.benchmark_rail = rail
         rail.configure(width=245)
         rail.pack(side='left', fill='y', padx=(0, 12))
         rail.pack_propagate(False)
@@ -366,6 +459,7 @@ class OSReviewApp(tk.Tk):
                  9, MUTED, wraplength=202, justify='left').pack(anchor='w', padx=13, pady=25)
         center = self._panel(outer, 'DESEMPENHO E ESTABILIDADE',
                              'A duração define o tempo real de execução. O gráfico registra a taxa em cada intervalo.')
+        self.benchmark_center = center
         center.pack(side='left', fill='both', expand=True)
         cfg = tk.Frame(center, bg=PANEL)
         cfg.pack(fill='x', padx=17, pady=(8, 8))
@@ -407,6 +501,24 @@ class OSReviewApp(tk.Tk):
         self.bench_result.pack(fill='both',expand=True,padx=17,pady=(0,12))
         set_text(self.bench_result,'Escolha o teste e a duração. Nenhum benchmark começa automaticamente.')
         self.refresh_bench_history()
+
+    def _benchmark_width_changed(self, width: int):
+        stacked = width < 850
+        if getattr(self, '_benchmark_stacked', None) == stacked:
+            return
+        self._benchmark_stacked = stacked
+        rail, center = self.benchmark_rail, self.benchmark_center
+        rail.pack_forget()
+        center.pack_forget()
+        if stacked:
+            rail.pack(fill='x', pady=(0, 8))
+            rail.pack_propagate(True)
+            center.pack(fill='x')
+        else:
+            rail.configure(width=245)
+            rail.pack(side='left', fill='y', padx=(0, 12))
+            rail.pack_propagate(False)
+            center.pack(side='left', fill='both', expand=True)
 
     def _make_processes(self):
         page = self._page('processes', 'Aplicativos e processos',
@@ -516,7 +628,8 @@ class OSReviewApp(tk.Tk):
         ui_button(tool, 'Consultar programas (WinGet)', self.request_upgrades, True).pack(side='left')
         ui_button(tool, 'Abrir Windows Update', lambda: self._open_windows('ms-settings:windowsupdate')).pack(side='left', padx=9)
         ui_button(tool, 'Gerenciador de Dispositivos', lambda: self._open_windows('devmgmt.msc')).pack(side='left')
-        ui_button(tool, 'Buscar KBs/drivers ofertados', self.request_pending_windows_updates).pack(side='left', padx=9)
+        tool_more = tk.Frame(page, bg=BG); tool_more.pack(fill='x', pady=(0, 9))
+        ui_button(tool_more, 'Buscar KBs/drivers ofertados', self.request_pending_windows_updates).pack(side='left')
         self.updates_text = text_area(page, 24)
         self.updates_text.pack(fill='both', expand=True)
         set_text(self.updates_text, 'Clique em Consultar para verificar atualizações disponíveis de programas. Nenhuma atualização será instalada automaticamente.')
@@ -899,13 +1012,14 @@ class OSReviewApp(tk.Tk):
         ui_label(meta, f'v{__version__} • Diagnóstico local • IA opt-in • Python / Tkinter',
                  10, WHITE).pack(anchor='w', padx=17, pady=(5, 8))
         ui_label(meta, 'Pendente: FPS/frametime, SMART, sensores universais, checagem automática de versões de drivers e apps macOS.',
-                 10, MUTED, wraplength=700, justify='left').pack(anchor='w', padx=17, pady=(0, 20))
+                 10, MUTED, wraplength=600, justify='left').pack(anchor='w', padx=17, pady=(0, 20))
 
     def switch(self, key: str):
         for child in self.tabs.values():
             child.pack_forget()
         self.tabs[key].pack(fill='both', expand=True)
         self.selected = key
+        self.after_idle(self._show_content_page)
         for tab, b in self.navbuttons.items():
             b.configure(bg=PANEL2 if tab == key else SIDEBAR,
                         fg=WHITE if tab == key else MUTED)
@@ -927,6 +1041,32 @@ class OSReviewApp(tk.Tk):
             self._refresh_security()
         if key == 'events':
             self._refresh_events()
+
+    def _show_content_page(self):
+        self._fit_content_page()
+        self.content_viewport.canvas.xview_moveto(0)
+        self.content_viewport.canvas.yview_moveto(0)
+
+    def _fit_content_page(self):
+        page = self.tabs.get(self.selected)
+        if page is None or not page.winfo_exists():
+            return
+        viewport = self.content_viewport
+        canvas = viewport.canvas
+        if self.selected == 'power':
+            layout_meters = getattr(self, '_layout_sensor_meters', None)
+            if layout_meters is not None and layout_meters(canvas.winfo_width()):
+                self.after_idle(self._fit_content_page)
+        width = max(canvas.winfo_width(), page.winfo_reqwidth())
+        height = max(canvas.winfo_height(), page.winfo_reqheight())
+        hbar = viewport.hscrollbar
+        if width > canvas.winfo_width() + 1:
+            if not hbar.winfo_manager():
+                hbar.pack(side='bottom', fill='x')
+        elif hbar.winfo_manager():
+            hbar.pack_forget()
+        canvas.itemconfigure(viewport.window, width=width, height=height)
+        viewport._update_region()
 
     @staticmethod
     def _descends_from(widget: tk.Widget, ancestor: tk.Widget) -> bool:
@@ -951,18 +1091,19 @@ class OSReviewApp(tk.Tk):
         targets: list[tk.Widget] = []
         def collect(widget: tk.Widget):
             canvas = getattr(widget, 'canvas', None)
-            if isinstance(canvas, tk.Canvas) and canvas.cget('yscrollcommand'):
+            if isinstance(canvas, tk.Canvas) and canvas.cget('yscrollcommand') and canvas not in targets:
                 targets.append(canvas)
-                return
             if isinstance(widget, (tk.Text, ttk.Treeview)):
                 targets.append(widget)
                 return
-            if isinstance(widget, tk.Canvas) and widget.cget('yscrollcommand'):
+            if isinstance(widget, tk.Canvas) and widget.cget('yscrollcommand') and widget not in targets:
                 targets.append(widget)
-                return
             for child in widget.winfo_children():
                 collect(child)
         collect(self.tabs[key])
+        outer = getattr(getattr(self, 'content_viewport', None), 'canvas', None)
+        if outer is not None:
+            targets.append(outer)
         self._wheel_targets_cache[key] = targets
         return targets
 
@@ -973,6 +1114,16 @@ class OSReviewApp(tk.Tk):
         dx = max(left - x, 0, x - right)
         dy = max(top - y, 0, y - bottom)
         return dx * dx + dy * dy
+
+    @staticmethod
+    def _wheel_ancestor_distance(widget: tk.Widget, target: tk.Widget) -> int:
+        distance = 0
+        while widget is not None:
+            if widget is target:
+                return distance
+            widget = widget.master
+            distance += 1
+        return 100000
 
     def _route_mouse_wheel(self, event):
         widget = event.widget
@@ -995,7 +1146,8 @@ class OSReviewApp(tk.Tk):
             if not candidates:
                 return
             target = min(candidates, key=lambda item:
-                         self._wheel_distance(item, event.x_root, event.y_root))
+                         (self._wheel_ancestor_distance(widget, item),
+                          self._wheel_distance(item, event.x_root, event.y_root)))
         if target is None or not target.winfo_ismapped() or not self._scrollable(target):
             return
         if target is not self._wheel_target:
@@ -1267,8 +1419,10 @@ class OSReviewApp(tk.Tk):
 
     def _draw_graph(self):
         c = self.graph
+        if c.winfo_width() < 100 or c.winfo_height() < 80:
+            return
         c.delete('all')
-        w, h = max(c.winfo_width(), 120), max(c.winfo_height(), 90)
+        w, h = c.winfo_width(), c.winfo_height()
         x0, x1, y0, y1 = 35, w-12, 12, h-25
         for v in (0, 25, 50, 75, 100):
             y = y1 - (y1-y0) * v / 100
@@ -1283,6 +1437,9 @@ class OSReviewApp(tk.Tk):
                 coords.extend([x0 + (x1-x0)*i/max(len(points)-1, 1),
                                y1 - (y1-y0)*min(max(value, 0), 100)/100])
             c.create_line(*coords, fill=color, width=2.5, smooth=True)
+        if len(self.cpu_history) < 2 and len(self.ram_history) < 2:
+            c.create_text(w / 2, h / 2, text='Coletando leituras de CPU e RAM...',
+                          fill=MUTED, font=(FONT, 10))
         if self.latest:
             self.graph_note.configure(text=f"Última leitura: CPU {self.latest['cpu_percent']:.1f}%  |  RAM {self.latest['memory_percent']:.1f}%  |  Swap {self.latest['swap_percent']:.1f}%")
 

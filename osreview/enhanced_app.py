@@ -134,12 +134,12 @@ class OSReviewAppV5(base.OSReviewApp):
 
     def _enhance_dashboard_cards(self):
         """Eight additional live cards; existing top 5 remain visible on every tab."""
-        dash=self.tabs['dashboard']
-        action=dash.winfo_children()[1]
-        self.dash_sensor_area=tk.Frame(dash,bg=base.BG)
+        action=self.dashboard_action
+        self.dash_sensor_area=tk.Frame(self.dashboard_scroll.body,bg=base.BG)
         self.dash_sensor_area.pack(fill='x',after=action,pady=(0,10))
         self.dash_sensor_values={}
         self.dash_sensor_subtitles={}
+        self.dash_sensor_boxes=[]
         titles=[('temp_cpu','CPU · TEMPERATURA'),('temp_gpu','GPU · TEMPERATURA'),
                 ('temp_disco','SSD / HD · TEMPERATURA'),('temp_geral','MAIOR TEMPERATURA REAL'),
                 ('power_cpu','CPU · POTÊNCIA MEDIDA'),('power_gpu','GPU · POTÊNCIA MEDIDA'),
@@ -148,6 +148,7 @@ class OSReviewAppV5(base.OSReviewApp):
             box=tk.Frame(self.dash_sensor_area,bg=base.PANEL,highlightbackground=base.EDGE,
                          highlightthickness=1,cursor='hand2')
             box.grid(row=i//4,column=i%4,sticky='nsew',padx=4,pady=4)
+            self.dash_sensor_boxes.append(box)
             base.ui_label(box,title,9,base.MUTED,True).pack(anchor='w',padx=10,pady=(7,2))
             val=base.ui_label(box,'Aguardando...',15,base.BLUE,True)
             val.pack(anchor='w',padx=10)
@@ -158,6 +159,18 @@ class OSReviewAppV5(base.OSReviewApp):
             for w in (box,val,desc):
                 w.bind('<Button-1>',lambda _e:self.switch('power'))
         for i in range(4):self.dash_sensor_area.grid_columnconfigure(i,weight=1)
+
+    def _layout_sensor_meters(self, width):
+        columns = 2 if width < 900 else 4
+        if getattr(self, '_sensor_meter_columns', None) == columns:
+            return False
+        self._sensor_meter_columns = columns
+        for index, widget in enumerate(self.sensor_meters.values()):
+            widget.grid(row=index // columns, column=index % columns)
+        for column in range(4):
+            self.sensor_meter_row.grid_columnconfigure(column,
+                                                        weight=1 if column < columns else 0)
+        return True
 
     def _rebuild_navigation(self):
         sidebar = self.root_grid.winfo_children()[0]
@@ -209,11 +222,11 @@ class OSReviewAppV5(base.OSReviewApp):
         self.left_status.pack(side='bottom', padx=14, pady=10, anchor='w')
 
     def _add_quick_buttons(self):
-        body = self.root_grid.winfo_children()[1]
-        header = body.winfo_children()[0]
-        base.ui_button(header, 'Sair do OSReview', self.exit_app, True).pack(side='right', padx=(6, 0))
-        base.ui_button(header, '☾ / ☀', self.toggle_theme).pack(side='right', padx=6)
-        base.ui_button(header, '▣ Modo compacto', lambda: self.set_compact(True)).pack(side='right', padx=6)
+        controls = tk.Frame(self.main_body, bg=base.BG)
+        controls.pack(fill='x', padx=24, pady=(0, 8), after=self.main_header)
+        base.ui_button(controls, 'Sair do OSReview', self.exit_app, True).pack(side='right', padx=(6, 0))
+        base.ui_button(controls, '☾ / ☀', self.toggle_theme).pack(side='right', padx=6)
+        base.ui_button(controls, '▣ Modo compacto', lambda: self.set_compact(True)).pack(side='right', padx=6)
 
     def _page_v5(self, name, title, subtitle):
         return self._page(name, title, subtitle)
@@ -249,8 +262,9 @@ class OSReviewAppV5(base.OSReviewApp):
         base.ui_button(top,'Atualizar interfaces',lambda:self._start_v05_job('network',collect_network),True).pack(side='left')
         base.ui_button(top,'Testar Internet / DNS',self.run_connectivity).pack(side='left',padx=6)
         base.ui_button(top,'Medir download / upload',self.confirm_speedtest).pack(side='left')
-        base.ui_button(top,'Scanner de IPs',lambda:self.switch('ipscanner')).pack(side='left',padx=6)
-        base.ui_button(top,'Identificar provedor',self.confirm_isp).pack(side='left',padx=6)
+        top_more = tk.Frame(nw,bg=base.BG);top_more.pack(fill='x',pady=(0,8))
+        base.ui_button(top_more,'Scanner de IPs',lambda:self.switch('ipscanner')).pack(side='left')
+        base.ui_button(top_more,'Identificar provedor',self.confirm_isp).pack(side='left',padx=6)
         status_panel=tk.Frame(nw,bg=base.PANEL,highlightthickness=1,highlightbackground=base.EDGE)
         status_panel.pack(fill='x',pady=(2,8))
         self.network_status=base.ui_label(status_panel,'REDE  •  Aguardando diagnóstico',12,base.BLUE,True)
@@ -314,12 +328,15 @@ class OSReviewAppV5(base.OSReviewApp):
         base.ui_label(pw, 'MOTOR DE SENSORES DE TERCEIROS: LibreHardwareMonitorLib 0.9.6 | © LibreHardwareMonitor e contribuidores | MPL 2.0.\nO OSReview não é afiliado ao projeto original. A leitura usa a biblioteca original quando disponível.',
                       9,base.MUTED,bg=base.BG,justify='left',wraplength=1000).pack(anchor='w',pady=(0,9))
         meter_row = tk.Frame(pw, bg=base.BG)
+        self.sensor_meter_row = meter_row
         meter_row.pack(fill='x', pady=(0, 10))
         self.sensor_meters = {}
-        for title in ('CPU','GPU','Disco','Geral'):
+        for index, title in enumerate(('CPU','GPU','Disco','Geral')):
             widget=SensorMeter(meter_row, ('Maior temp. real' if title=='Geral' else title + ' · temperatura'))
-            widget.pack(side='left', fill='x', expand=True, padx=(0, 10))
+            widget.grid(row=0, column=index, sticky='nsew', padx=5, pady=4)
             self.sensor_meters[title]=widget
+        for column in range(4):
+            meter_row.grid_columnconfigure(column, weight=1)
         self.energy_live_status=base.ui_label(pw,
             'Maior temperatura real: apenas valores medidos; os limites de alerta do NVMe não entram no cálculo.',
             9,base.MUTED,bg=base.BG)
@@ -341,9 +358,9 @@ class OSReviewAppV5(base.OSReviewApp):
         self.sensor_freeze_button.pack(side='left',padx=(0,8))
         base.ui_button(detailbar,'Capturar detalhes agora',self.capture_sensor_details).pack(side='left',padx=(0,8))
         base.ui_button(detailbar,'Explorar sensores (janela)',self.open_sensor_explorer).pack(side='left',padx=(0,8))
-        self.sensor_refresh_note=base.ui_label(detailbar,'Detalhes congelados; os medidores seguem ativos.',
+        self.sensor_refresh_note=base.ui_label(pw,'Detalhes congelados; os medidores seguem ativos.',
                                              9,base.MUTED,bg=base.BG)
-        self.sensor_refresh_note.pack(side='left')
+        self.sensor_refresh_note.pack(anchor='w',pady=(0,7))
         filterrow=tk.Frame(pw,bg=base.BG)
         filterrow.pack(fill='x',pady=(0,8))
         base.ui_label(filterrow,'Visualizar detalhes:',10,base.MUTED,bg=base.BG).pack(side='left',padx=(0,9))
@@ -352,8 +369,8 @@ class OSReviewAppV5(base.OSReviewApp):
             state='readonly',width=22,values=['Resumo','CPU','GPU','SSD / HD','Fonte / energia','Todos os sensores'])
         self.sensor_section_combo.pack(side='left')
         self.sensor_section_combo.bind('<<ComboboxSelected>>',lambda _event:self.capture_sensor_details())
-        base.ui_label(filterrow,'Atualização: medidores ao vivo; detalhes só mediante captura ou opção automática.',
-                      9,base.MUTED,bg=base.BG).pack(side='left',padx=12)
+        base.ui_label(pw,'Atualização: medidores ao vivo; detalhes só mediante captura ou opção automática.',
+                      9,base.MUTED,bg=base.BG,wraplength=650).pack(anchor='w',pady=(0,7))
         self.power_text = base.text_area(pw,5)
         self.power_cards=SpecCards(pw);self.power_cards.pack(fill='both',expand=True)
         self.power_cards.render([{'title':'SENSORES','rows':[('Status','Consultando sensores...')]}])
@@ -379,16 +396,17 @@ class OSReviewAppV5(base.OSReviewApp):
         base.ui_button(top,'Atualizar lista',self.refresh_fps_processes).pack(side='left',padx=3)
         base.ui_button(top,'▶ Ativar FPS',self.confirm_fps,True).pack(side='left',padx=3)
         base.ui_button(top,'■ Desativar',self.stop_fps).pack(side='left',padx=3)
-        tk.Checkbutton(top,text='Mostrar janela FPS sobreposta',variable=self.fps_overlay_var,
+        fps_options=tk.Frame(fps,bg=base.BG);fps_options.pack(fill='x',pady=(0,8))
+        tk.Checkbutton(fps_options,text='Mostrar janela FPS sobreposta',variable=self.fps_overlay_var,
             bg=base.BG,fg=base.WHITE,selectcolor=base.PANEL,activebackground=base.BG,
-            activeforeground=base.WHITE).pack(side='left',padx=(14,0))
+            activeforeground=base.WHITE).pack(side='left')
         base.ui_label(fps,'Motor de captura: Intel PresentMon (GameTechDev), código aberto MIT. '
             'OSReview é independente. Site: https://github.com/GameTechDev/PresentMon',
-            10,base.MUTED,bg=base.BG,wraplength=900).pack(anchor='w',pady=(0,9))
+            10,base.MUTED,bg=base.BG,wraplength=650).pack(anchor='w',pady=(0,9))
         self.display_refresh_note=base.ui_label(fps,'Desktop Windows: consultando taxa de atualização...',10,base.BLUE,bg=base.BG,wraplength=950,justify='left')
         self.display_refresh_note.pack(anchor='w',pady=(1,7))
         base.ui_label(fps,'dwm.exe = compositor do Windows; explorer.exe = shell/barra de tarefas. Não existe um executável universal que represente todos os FPS da tela. A frequência em Hz não é FPS. PresentMon poderá ou não reportar quadros do DWM.',
-                      10,base.MUTED,bg=base.BG,wraplength=950,justify='left').pack(anchor='w',pady=(0,8))
+                      10,base.MUTED,bg=base.BG,wraplength=650,justify='left').pack(anchor='w',pady=(0,8))
         self.fps_text=base.text_area(fps,12);self.fps_text.pack(fill='both',expand=True)
         base.set_text(self.fps_text,'Clique Ativar FPS depois de abrir o jogo. O OSReview usa o motor '
             'PresentMon CLI 2.6.0 empacotado e verificado por SHA-256. Se o motor estiver ausente, '
@@ -435,11 +453,11 @@ class OSReviewAppV5(base.OSReviewApp):
         base.ui_button(bar,'Windows Update',lambda:self.switch('updates')).pack(side='left',padx=9)
         self.bg_cards=SpecCards(bg);self.bg_cards.pack(fill='both',expand=True)
         self.bg_cards.render([{'title':'DIAGNÓSTICO DE FUNDO','rows':[('Status','Aguardando verificação...')]}])
-        dash=self.tabs['dashboard']
-        row=dash.winfo_children()[1]
-        base.ui_button(row,'Atividade em segundo plano',lambda:self.switch('background')).pack(side='left',padx=7)
-        self.activity_summary=base.ui_label(dash,'Atividades de fundo: verificando...',10,base.MUTED,bg=base.BG)
-        self.activity_summary.pack(anchor='w',pady=(0,6),before=dash.winfo_children()[2])
+        base.ui_button(self.dashboard_action,'Atividade em segundo plano',
+                       lambda:self.switch('background')).pack(side='left',padx=7)
+        self.activity_summary=base.ui_label(self.dashboard_scroll.body,
+            'Atividades de fundo: verificando...',10,base.MUTED,bg=base.BG)
+        self.activity_summary.pack(anchor='w',pady=(0,6),before=self.dashboard_columns)
         self.ai_answer=base.text_area(ia,14);self.ai_answer.pack(fill='both',expand=True,pady=(10,0))
         base.set_text(self.ai_answer,'Nunca compartilhe senhas, chaves, logs completos ou dados pessoais.\n'
                       'A pergunta enviada não inclui automaticamente inventário, rede, eventos ou chaves.')
@@ -456,15 +474,16 @@ class OSReviewAppV5(base.OSReviewApp):
             tk.Radiobutton(row,text=label,value=value,variable=self.theme_var,command=lambda:self.apply_theme(self.theme_var.get()),
                            bg=base.PANEL,fg=base.WHITE,selectcolor=base.PANEL2,
                            activebackground=base.PANEL,activeforeground=base.WHITE).pack(side='left',padx=14)
-        base.ui_label(row,'Paleta:',10,base.MUTED).pack(side='left',padx=(20,5))
+        palette_row=tk.Frame(panel,bg=base.PANEL);palette_row.pack(fill='x',padx=14,pady=(0,8))
+        base.ui_label(palette_row,'Paleta:',10,base.MUTED).pack(side='left',padx=(5,8))
         self.accent_var=tk.StringVar(value=self.config_store.data.get('accent_theme','graphite'))
         choices=[f'{key} · {value[0]}' for key,value in THEMES.items()]
-        self.accent_choice=ttk.Combobox(row,values=choices,state='readonly',width=33)
+        self.accent_choice=ttk.Combobox(palette_row,values=choices,state='readonly',width=28)
         self.accent_choice.set(next((choice for choice in choices if choice.startswith(self.accent_var.get()+' ·')),choices[0]))
         self.accent_choice.bind('<<ComboboxSelected>>',lambda _e:self.apply_theme(
             self.theme_var.get(),self.accent_choice.get().split(' · ',1)[0]))
         self.accent_choice.pack(side='left',padx=5)
-        base.ui_button(row,'Alternar compacto / completo',self.toggle_compact).pack(side='left',padx=18)
+        base.ui_button(panel,'Alternar compacto / completo',self.toggle_compact).pack(anchor='w',padx=18,pady=(0,8))
         self.hover_var=tk.BooleanVar(value=self.config_store.data.get('tray_hover_popup',True))
         tk.Checkbutton(panel,text='Mostrar mini cartão ao passar mouse no ícone da bandeja (Windows)',
                        variable=self.hover_var,command=self.save_hover_option,bg=base.PANEL,
@@ -1218,7 +1237,7 @@ class OSReviewAppV5(base.OSReviewApp):
         else:
             self.compact.pack_forget()
             self.root_grid.pack(fill='both',expand=True)
-            self.minsize(1130,770)
+            self.minsize(980,600)
             self.geometry(self._full_geometry)
         self.config_store.set('compact_mode',enabled)
         self._update_mini()

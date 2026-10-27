@@ -1,4 +1,4 @@
-# Build do desenvolvedor — OSReview v0.9.1 RC2
+# Build do desenvolvedor — OSReview v0.9.1 RC3
 
 - Windows x64: `build/Gerar_Instalador_Windows_x64.bat`, precisa de Python 3.12,
   .NET SDK 8 e Inno Setup 6 **na máquina de compilação, nunca no PC do usuário**.
@@ -8,9 +8,9 @@
   macOS Intel e macOS Apple Silicon. Pode ser iniciado manualmente para validar
   os três builds; ao receber a tag desta versão, só publica a Release depois
   que os três jobs tiverem êxito.
-- Artefatos finais: `OSReview-Setup-0.9.1-rc.2-Windows-x64-*.exe`,
-  `OSReview-Portable-0.9.1-rc.2-Windows-x64.zip` e
-  `OSReview-0.9.1-rc.2-macOS-{x86_64,arm64}-*.dmg`.
+- Artefatos finais: `OSReview-Setup-0.9.1-rc.3-Windows-x64-*.exe`,
+  `OSReview-Portable-0.9.1-rc.3-Windows-x64.zip` e
+  `OSReview-0.9.1-rc.3-macOS-{x86_64,arm64}-*.dmg`.
 
 O gerador inclui no Windows o `SensorBridge.exe` **publicado self-contained** com
 `IncludeNativeLibrariesForSelfExtract=true` e manifesto SHA-256. O instalador

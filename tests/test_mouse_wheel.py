@@ -5,7 +5,7 @@ from tkinter import ttk
 
 import pytest
 
-from osreview.app import OSReviewApp
+from osreview.app import OSReviewApp, ScrollablePageContent
 from osreview.ui_cards import SpecCards
 
 
@@ -13,6 +13,7 @@ class WheelHarness(tk.Tk):
     _descends_from = staticmethod(OSReviewApp._descends_from)
     _scrollable = staticmethod(OSReviewApp._scrollable)
     _wheel_distance = staticmethod(OSReviewApp._wheel_distance)
+    _wheel_ancestor_distance = staticmethod(OSReviewApp._wheel_ancestor_distance)
     _page_wheel_targets = OSReviewApp._page_wheel_targets
     _route_mouse_wheel = OSReviewApp._route_mouse_wheel
 
@@ -79,5 +80,36 @@ def test_wheel_over_page_button_scrolls_treeview():
                                 y_root=button.winfo_rooty() + 5, delta=-120, num=0)
         assert root._route_mouse_wheel(event) == 'break'
         assert tree.yview()[0] > 0
+    finally:
+        root.destroy()
+
+
+def test_wheel_over_page_controls_scrolls_entire_short_page():
+    try:
+        root = WheelHarness()
+    except tk.TclError as exc:
+        pytest.skip(f'Tk indisponível: {exc}')
+    try:
+        root.geometry('460x280')
+        root._wheel_targets_cache = {}
+        root._wheel_target = None
+        root._wheel_remainder = 0
+        root.selected = 'settings'
+        root.content_viewport = ScrollablePageContent(root, horizontal=True)
+        root.content_viewport.pack(fill='both', expand=True)
+        page = tk.Frame(root.content_viewport.body)
+        page.pack(fill='both', expand=True)
+        button = tk.Button(page, text='Tema')
+        button.pack()
+        for index in range(30):
+            tk.Label(page, text=f'Opção {index}', pady=7).pack()
+        root.tabs = {'settings': page}
+        root.update()
+        outer = root.content_viewport.canvas
+        assert outer.yview()[1] < 1
+        event = SimpleNamespace(widget=button, x_root=button.winfo_rootx() + 5,
+                                y_root=button.winfo_rooty() + 5, delta=-120, num=0)
+        assert root._route_mouse_wheel(event) == 'break'
+        assert outer.yview()[0] > 0
     finally:
         root.destroy()

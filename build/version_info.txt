@@ -5,10 +5,10 @@ VSVersionInfo(
   kids=[StringFileInfo([StringTable('040904B0', [
     StringStruct('CompanyName', 'OSReview Project'),
     StringStruct('FileDescription', 'OSReview - Diagnostico e desempenho'),
-    StringStruct('FileVersion', '0.9.1-rc.2'),
+    StringStruct('FileVersion', '0.9.1-rc.3'),
     StringStruct('InternalName', 'OSReview'),
     StringStruct('OriginalFilename', 'OSReview.exe'),
     StringStruct('ProductName', 'OSReview'),
-    StringStruct('ProductVersion', '0.9.1-rc.2')
+    StringStruct('ProductVersion', '0.9.1-rc.3')
   ])]), VarFileInfo([VarStruct('Translation', [1033, 1200])])]
 )

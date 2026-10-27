@@ -16,9 +16,9 @@ class SensorMeter(tk.Frame):
                                   font=(base.FONT,16,'bold'))
         self.value_label.pack(anchor='w',padx=12)
         self.source_label=tk.Label(self,text='Aguardando sensor...',bg=base.PANEL,fg=base.MUTED,
-                                   font=(base.FONT,8),anchor='w')
+                                   font=(base.FONT,8),anchor='w',justify='left',wraplength=180)
         self.source_label.pack(anchor='w',padx=12)
-        self.canvas=tk.Canvas(self,height=8,bg=base.PANEL,highlightthickness=0)
+        self.canvas=tk.Canvas(self,width=110,height=8,bg=base.PANEL,highlightthickness=0)
         self.canvas.pack(fill='x',padx=12,pady=(4,9))
         self.canvas.bind('<Configure>',lambda _:self._draw())
         self.percent=None

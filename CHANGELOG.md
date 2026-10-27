@@ -1,3 +1,10 @@
+# v0.9.1 RC3 — gráficos e janelas adaptáveis
+
+- Gráficos de CPU/RAM e benchmark são redesenhados ao mudar o tamanho da janela. A visão geral e o benchmark rolam verticalmente quando necessário.
+- Todas as telas passam a oferecer rolagem vertical do conteúdo completo. Tabelas e controles largos mantêm acesso por rolagem horizontal quando a janela é estreita.
+- Os medidores de temperatura, ações de Rede, controles de FPS, opções de aparência e cards superiores se reorganizam para larguras menores.
+- Janela inicial e tamanho mínimo foram ajustados para resoluções menores, mantendo o modo compacto e os temas claro/escuro.
+
 # v0.9.1 RC2 — rolagem por mouse e revisão da publicação pública
 
 - A roda do mouse passa a rolar o painel ou a lista da página ativa quando o ponteiro está sobre títulos, botões e cards. A navegação lateral também rola sem apontar para a barra.

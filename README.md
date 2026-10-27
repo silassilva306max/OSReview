@@ -1,8 +1,8 @@
-# OSReview v0.9.1 RC2
+# OSReview v0.9.1 RC3
 
 Sistema de diagnóstico de hardware, processos, sensores, rede, eventos, energia e FPS.
 
-Na versão 0.9.1 RC2, a interface oferece cinco paletas nos modos claro e escuro,
+Na versão 0.9.1 RC3, a interface oferece cinco paletas nos modos claro e escuro,
 benchmarks locais de CPU/RAM com gráfico e histórico, e controles confirmados de
 processos e serviços de terceiros. A metodologia dos testes está em
 `METODOLOGIA_BENCHMARK.md`.
@@ -12,7 +12,7 @@ se essa preferência estiver ativada. A tela Atualizações baixa o instalador
 somente por escolha do usuário, confere tamanho e SHA-256 e abre o assistente
 após confirmação de que o Avast terminou sua análise. A instalação anterior é
 atualizada na mesma pasta pelo mesmo AppId do Inno Setup. Cópias portáteis não
-são sobrescritas por esse instalador. Quem usa 0.9.0 precisa instalar 0.9.1 RC2
+são sobrescritas por esse instalador. Quem usa 0.9.0 precisa instalar 0.9.1 RC3
 uma vez para receber os próximos avisos no aplicativo.
 
 ## Distribuição para usuário final
@@ -31,7 +31,7 @@ O sensor LibreHardwareMonitorLib é biblioteca de terceiros, com licença MPL 2.
 e créditos na interface. A presença de assinatura válida deve ser verificada
 por Authenticode (Windows), Developer ID e notarização (Mac).
 
-**Disponibilidade:** a Release `v0.9.1-rc.2` contém instalador Windows x64,
+**Disponibilidade:** a Release `v0.9.1-rc.3` contém instalador Windows x64,
 ZIP portátil e DMGs macOS para Intel e Apple Silicon, com arquivos SHA-256.
 Os três builds passaram nos runners nativos do GitHub Actions. A instalação
 interativa em Mac físico ainda precisa de validação. Sensores exclusivos do
