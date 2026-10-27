@@ -129,7 +129,13 @@ final class OSReviewInstaller: NSObject, NSApplicationDelegate {
     }
 }
 
-let application = NSApplication.shared
-let delegate = OSReviewInstaller()
-application.delegate = delegate
-application.run()
+@main
+struct OSReviewInstallerMain {
+    @MainActor
+    static func main() {
+        let application = NSApplication.shared
+        let delegate = OSReviewInstaller()
+        application.delegate = delegate
+        application.run()
+    }
+}

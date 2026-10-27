@@ -30,7 +30,7 @@ mkdir -p "$installer/Contents/MacOS" "$installer/Contents/Resources"
 cp installer/macos/NativeInstaller/Info.plist "$installer/Contents/Info.plist"
 cp assets/osreview.icns "$installer/Contents/Resources/osreview.icns"
 /usr/bin/ditto 'dist/OSReview.app' "$installer/Contents/Resources/OSReview.app"
-/usr/bin/xcrun swiftc -O -framework AppKit installer/macos/NativeInstaller/main.swift \
+/usr/bin/xcrun swiftc -O -parse-as-library -framework AppKit installer/macos/NativeInstaller/main.swift \
   -o "$installer/Contents/MacOS/InstalarOSReview"
 chmod +x "$installer/Contents/MacOS/InstalarOSReview"
 
