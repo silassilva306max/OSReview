@@ -10,7 +10,7 @@
 
 ## Configuração de segurança
 
-- Varredura de segredos, proteção contra push de credenciais, alertas de dependências, atualizações de segurança do Dependabot e relato privado de vulnerabilidades: ativados e verificados pela API autenticada do GitHub. O CodeQL automático também foi ativado; sua análise inicial ainda precisa terminar. Nenhum alerta aberto de segredos ou Dependabot foi retornado no momento da consulta; as varreduras recém-habilitadas podem produzir alertas posteriormente.
+- Varredura de segredos, proteção contra push de credenciais, alertas de dependências, atualizações de segurança do Dependabot e relato privado de vulnerabilidades: ativados e verificados pela API autenticada do GitHub. O CodeQL automático também foi ativado. Dois alertas iniciais foram corrigidos na RC2; a consulta após o envio das correções retornou zero alertas CodeQL abertos. Nenhum alerta aberto de segredos ou Dependabot foi retornado no momento da consulta; varreduras posteriores ainda podem produzir alertas.
 - Permissões padrão do `GITHUB_TOKEN`: somente leitura. O workflow passa a reservar `contents: write` apenas para o job de publicação; build e testes não recebem essa permissão. As Actions usadas pelo workflow estão fixadas por SHA de commit. Atualizações de dependências e Actions geram propostas semanais, sem merge automático.
 - A branch padrão bloqueia force push e exclusão, exige histórico linear e aplica a regra também ao administrador. Pushes normais continuam permitidos. Esta proteção não substitui revisão de código, assinatura de commits nem segurança da conta GitHub.
 
@@ -19,7 +19,7 @@
 - O repositório é público: código, histórico Git, logs de Actions e imagens antigas podem ser copiados por terceiros. Remover arquivos da árvore atual não elimina cópias nem objetos históricos. A reescrita do histórico para remover metadados pessoais exigiria operação coordenada com substituição de tags e avaliação da Release existente.
 - O instalador não tem assinatura Authenticode. O hash da Release não prova a identidade do editor nem ausência de malware. O fluxo completo de instalação e atualização ainda depende da análise do Avast e de validação manual em Windows.
 - Dependências Python usam intervalos de versão, o NuGet usa uma versão fixa e o Inno Setup é instalado via Chocolatey no CI. Ainda não há lockfile com hashes de todas as dependências de build.
-- Os jobs macOS da execução 0.9.1 falharam; nenhum DMG foi publicado. O job Windows e sua publicação foram concluídos.
+- As primeiras execuções dos jobs macOS falharam em teste multiplataforma, isolamento Swift e criação da imagem Intel. As três causas foram corrigidas. A validação manual RC2 gerou com êxito artefatos Windows x64, macOS Intel e macOS Apple Silicon; o job de publicação só é executado na tag de versão.
 - O repositório não declara licença própria. Publicar código não concede automaticamente permissão de reutilização; a escolha de licença cabe ao proprietário. Avisos e licenças dos componentes de terceiros estão em `licenses/`.
 
 **Conclusão:** nenhuma credencial ativa foi identificada nos arquivos examinados. A publicação não pode receber garantia de segurança de 100%; os limites acima permanecem relevantes para quem baixa e para o proprietário do repositório.
