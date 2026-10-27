@@ -46,7 +46,17 @@ fi
 
 cp installer/macos/README_MAC.txt "$stage/LEIA-ME.txt"
 output="release/OSReview-0.9.1-rc.2-macOS-${arch}-NAO-NOTARIZADO.dmg"
-hdiutil create -volname 'OSReview 0.9.1 RC2' -srcfolder "$stage" -ov -format UDZO "$output"
+for attempt in 1 2 3; do
+  if hdiutil create -volname 'OSReview 0.9.1 RC2' -srcfolder "$stage" -ov -format UDZO "$output"; then
+    break
+  fi
+  if [[ "$attempt" -eq 3 ]]; then
+    echo 'Falha ao criar DMG apos tres tentativas.' >&2
+    exit 1
+  fi
+  echo "hdiutil falhou na tentativa $attempt; aguardando antes de repetir." >&2
+  sleep "$((attempt * 10))"
+done
 shasum -a 256 "$output" > "$output.sha256"
 echo "DMG gerado: $output"
 echo 'O usuário instala por interface gráfica, sem .command, Terminal, Python ou .NET.'
