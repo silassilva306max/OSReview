@@ -6,6 +6,7 @@ run in background threads. Internet traffic and scans require a click.
 from __future__ import annotations
 
 import json
+from collections import deque
 import os
 import platform
 import queue
@@ -28,7 +29,7 @@ from osreview.services.startup_logging import LOG, log_tk_error
 from osreview.energy_meter import SensorMeter, representative_temperatures
 from osreview.sensor_explorer import SensorExplorer
 from osreview.services.sensor_triage import triage
-from osreview.services.sensor_analysis import (temperature_readings, power_readings,
+from osreview.services.sensor_analysis import (temperature_readings, power_readings, clock_readings,
     sensor_overview, temperature_thresholds, timestamp_of)
 from osreview.services.diagnostics import Finding
 from osreview.services.motherboard_advisor import collect_board
@@ -39,14 +40,9 @@ from osreview.services.isp_lookup import fetch_isp
 from osreview.services.background_activity import collect_background_activity
 from osreview.services.collection_integrity import diagnose_collection
 from osreview.ui_cards import (SpecCards, SpeedGauge, hardware_cards, board_cards, network_cards, power_cards, activity_cards, local_devices_cards)
+from osreview.ui_theme import THEMES, palette
 
-DARK = {k: getattr(base,k) for k in
-        ('BG','SIDEBAR','PANEL','PANEL2','EDGE','WHITE','MUTED','RED','GREEN','BLUE','PURPLE','YELLOW')}
-LIGHT = dict(BG='#F3F6FB', SIDEBAR='#E8EEF5', PANEL='#FFFFFF', PANEL2='#EAF0F8',
-             EDGE='#CCD7E5', WHITE='#142335', MUTED='#4C6074', RED='#B53D35',
-             GREEN='#087B55', BLUE='#1766A8', PURPLE='#6D4BA5', YELLOW='#8A5B00')
-# Additional old theme colors used by controls outside the main palette.
-MISC_COLORS = {'#11151A':'#FFFFFF', '#FD8580':'#F0A6A0', '#34465A':'#CCE0F5'}
+THEME_KEYS = tuple(palette('dark', 'graphite'))
 
 
 def pretty(obj: Any) -> str:
@@ -78,6 +74,7 @@ class OSReviewAppV5(base.OSReviewApp):
         self._hover_last = 0.0
         self._hover_shown_at = 0.0
         self._hover_active = False
+        self._cpu_clock_samples = deque(maxlen=30)
         # Existing UI creates most components before super() returns.
         super().__init__()
         self.title(f'OSReview | Hardware, Rede e Diagnóstico — {__version__}' +
@@ -178,7 +175,7 @@ class OSReviewAppV5(base.OSReviewApp):
         shell = tk.Frame(sidebar, bg=base.SIDEBAR)
         shell.pack(side='top', fill='both', expand=True, padx=(4, 0))
         canvas = tk.Canvas(shell, bg=base.SIDEBAR, bd=0, highlightthickness=0)
-        scroll = tk.Scrollbar(shell, orient='vertical', command=canvas.yview)
+        scroll = ttk.Scrollbar(shell, orient='vertical', command=canvas.yview)
         scroll.pack(side='right', fill='y')
         canvas.pack(side='left', fill='both', expand=True)
         nav = tk.Frame(canvas, bg=base.SIDEBAR)
@@ -216,6 +213,7 @@ class OSReviewAppV5(base.OSReviewApp):
     def _add_quick_buttons(self):
         body = self.root_grid.winfo_children()[1]
         header = body.winfo_children()[0]
+        base.ui_button(header, 'Sair do OSReview', self.exit_app, True).pack(side='right', padx=(6, 0))
         base.ui_button(header, '☾ / ☀', self.toggle_theme).pack(side='right', padx=6)
         base.ui_button(header, '▣ Modo compacto', lambda: self.set_compact(True)).pack(side='right', padx=6)
 
@@ -460,6 +458,14 @@ class OSReviewAppV5(base.OSReviewApp):
             tk.Radiobutton(row,text=label,value=value,variable=self.theme_var,command=lambda:self.apply_theme(self.theme_var.get()),
                            bg=base.PANEL,fg=base.WHITE,selectcolor=base.PANEL2,
                            activebackground=base.PANEL,activeforeground=base.WHITE).pack(side='left',padx=14)
+        base.ui_label(row,'Paleta:',10,base.MUTED).pack(side='left',padx=(20,5))
+        self.accent_var=tk.StringVar(value=self.config_store.data.get('accent_theme','graphite'))
+        choices=[f'{key} · {value[0]}' for key,value in THEMES.items()]
+        self.accent_choice=ttk.Combobox(row,values=choices,state='readonly',width=33)
+        self.accent_choice.set(next((choice for choice in choices if choice.startswith(self.accent_var.get()+' ·')),choices[0]))
+        self.accent_choice.bind('<<ComboboxSelected>>',lambda _e:self.apply_theme(
+            self.theme_var.get(),self.accent_choice.get().split(' · ',1)[0]))
+        self.accent_choice.pack(side='left',padx=5)
         base.ui_button(row,'Alternar compacto / completo',self.toggle_compact).pack(side='left',padx=18)
         self.hover_var=tk.BooleanVar(value=self.config_store.data.get('tray_hover_popup',True))
         tk.Checkbutton(panel,text='Mostrar mini cartão ao passar mouse no ícone da bandeja (Windows)',
@@ -897,6 +903,8 @@ class OSReviewAppV5(base.OSReviewApp):
                 descriptions={'power_gpu':'Potência reportada pela GPU',
                     'power_bateria':'Carga/descarga da bateria (se reportada)',
                     'power_fonte':'Potência total só com fonte digital compatível'}
+                if key=='power_gpu' and reading is not None and reading.value==0:
+                    descriptions[key]='Sensor reportou 0 W nesta amostra; não prova GPU desligada'
                 if key=='power_fonte' and reading is None:
                     domains=[f'CPU {watts["cpu_package"].value:.1f} W' for _ in (0,) if watts.get('cpu_package')]
                     if watts.get('gpu'):domains.append(f'GPU {watts["gpu"].value:.2f} W')
@@ -1149,30 +1157,40 @@ class OSReviewAppV5(base.OSReviewApp):
     def toggle_theme(self):
         self.apply_theme('light' if self.config_store.data.get('theme','dark')=='dark' else 'dark')
 
-    def apply_theme(self, mode='dark', save=True):
+    def apply_theme(self, mode='dark', accent=None, save=True):
         mode='light' if mode=='light' else 'dark'
-        old={k:getattr(base,k) for k in DARK}
-        new=LIGHT if mode=='light' else DARK
+        accent=accent or self.config_store.data.get('accent_theme','graphite')
+        if accent not in THEMES:accent='graphite'
+        old={k:getattr(base,k) for k in THEME_KEYS}
+        new=palette(mode,accent)
         mapping={old[k].lower():new[k] for k in old}
-        if mode=='light':mapping.update({k.lower():v for k,v in MISC_COLORS.items()})
-        else:mapping.update({v.lower():k for k,v in MISC_COLORS.items()})
         for k,v in new.items():setattr(base,k,v)
         self._recolor_widget(self, mapping)
         try:
             self._style_tree()
             style=ttk.Style(self)
             style.map('OS.Treeview',
-                      background=[('selected', '#BAD6F0' if mode=='light' else '#34465A')],
+                      background=[('selected',new['PANEL2'])],
                       foreground=[('selected',new['WHITE'])])
+            style.configure('Vertical.TScrollbar',background=new['PANEL2'],troughcolor=new['BG'],
+                            arrowcolor=new['MUTED'],bordercolor=new['EDGE'],relief='flat')
+            style.map('Vertical.TScrollbar',background=[('active',new['ACCENT'])])
+            style.configure('TCombobox',fieldbackground=new['PANEL2'],background=new['PANEL2'],
+                            foreground=new['WHITE'],arrowcolor=new['MUTED'])
         except tk.TclError:pass
         if getattr(self,'theme_var',None):self.theme_var.set(mode)
-        if save:self.config_store.set('theme',mode)
+        if getattr(self,'accent_var',None):self.accent_var.set(accent)
+        if save:
+            self.config_store.set('theme',mode)
+            self.config_store.set('accent_theme',accent)
         for widget in ('hw_cards','board_cards','net_cards','power_cards','bg_cards'):
             view=getattr(self,widget,None)
             if view and view.current:view.render(view.current)
         for gauge in ('gauge_download','gauge_upload'):
             g=getattr(self,gauge,None)
-            if g:g.draw()
+            if g:
+                g.color=new['GREEN'] if gauge=='gauge_download' else new['BLUE']
+                g.draw()
         if self.latest:
             self._draw_graph()
             self._update_telemetry()
@@ -1260,31 +1278,42 @@ class OSReviewAppV5(base.OSReviewApp):
 
     def _update_telemetry(self):
         super()._update_telemetry()
-        # The global CPU/GPU cards must not contradict the validated sensor
-        # source shown in the dedicated energy panel.
-        if self.power_detail:
-            from datetime import datetime
-            try:
-                freshness=(datetime.now()-datetime.fromisoformat(
-                    str(self.power_detail.get('collected_at','')))).total_seconds()
-            except (TypeError,ValueError): freshness=9999
-            if 0 <= freshness <= 50:
-                temps=temperature_readings(self.power_detail)
-                if temps['CPU'] and self.latest:
-                    top=self.metrics.get('cpu')
-                    if top:
-                        mhz=self.latest.get('cpu_freq_mhz')
-                        freq=f'{mhz:.0f} MHz' if isinstance(mhz,(int,float)) else 'Frequência indisponível'
-                        top[1].configure(text=f'{freq} • {temps["CPU"].value:.1f} °C')
-                if self.latest and self.latest.get('gpu_percent') is None:
-                    rows=(self.power_detail.get('groups') or {}).get('GPU',[])
-                    observed=next((r for r in rows if r.get('name','').casefold()=='d3d 3d' and
-                        r.get('type','').casefold()=='load' and isinstance(r.get('value'),(int,float))),None)
-                    if observed:
-                        top=self.metrics.get('gpu')
-                        if top:
-                            top[0].configure(text=f'{observed["value"]:.1f}%')
-                            top[1].configure(text='Intel UHD • D3D 3D (sensor integrado)')
+        # A source that reports a fixed frequency is labelled as such; no
+        # artificial variation or unmeasured power is inserted.
+        from datetime import datetime
+        try:
+            freshness=(datetime.now()-datetime.fromisoformat(
+                str((self.power_detail or {}).get('collected_at','')))).total_seconds()
+        except (TypeError,ValueError):freshness=float('inf')
+        recent=0<=freshness<=50
+        clocks=clock_readings(self.power_detail) if recent else {'CPU':None,'GPU':None}
+        temps=temperature_readings(self.power_detail) if recent else {'CPU':None}
+        watts=power_readings(self.power_detail) if recent else {'gpu':None}
+        mhz=clocks['CPU'].value if clocks['CPU'] else self.latest.get('cpu_freq_mhz')
+        if isinstance(mhz,(int,float)) and mhz>0:
+            self._cpu_clock_samples.append(float(mhz))
+            low,high=min(self._cpu_clock_samples),max(self._cpu_clock_samples)
+            trend=(f'Faixa {low:.0f}–{high:.0f} MHz' if high-low>=max(50,mhz*.03) else
+                   'Sem variação observada' if len(self._cpu_clock_samples)>=3 else
+                   'Amostrando frequência')
+            source='sensor' if clocks['CPU'] else 'API do Windows'
+            freq=f'{mhz:.0f} MHz'
+        else:
+            trend='Frequência indisponível';source='';freq='Clock n/d'
+        temperature=temps['CPU'].value if temps['CPU'] else self.latest.get('cpu_temp_c')
+        thermal=f'{temperature:.1f} °C' if isinstance(temperature,(int,float)) else 'Temp. n/d'
+        self.metrics['cpu'][1].configure(text=f'{freq} · {thermal}\n{trend} · {source}'.strip(' ·'))
+        if recent and self.latest.get('gpu_percent') is None:
+            rows=(self.power_detail.get('groups') or {}).get('GPU',[])
+            observed=next((r for r in rows if r.get('name','').casefold()=='d3d 3d' and
+                r.get('type','').casefold()=='load' and isinstance(r.get('value'),(int,float))),None)
+            if observed:self.metrics['gpu'][0].configure(text=f'{observed["value"]:.1f}%')
+        gpu_clock=f'{clocks["GPU"].value:.0f} MHz' if clocks['GPU'] else 'n/d'
+        gpu_power=watts['gpu'].display('W') if watts['gpu'] else (
+            f"{self.latest['gpu_power_w']:.1f} W" if isinstance(self.latest.get('gpu_power_w'),(int,float)) else 'Não medido')
+        gpu_name=(self.inventory['gpus'][0]['name'] if self.inventory and self.inventory.get('gpus') else
+                  self.latest.get('gpu_name','GPU'))
+        self.metrics['gpu'][1].configure(text=f'{str(gpu_name)[:24]}\nClock {gpu_clock} · {gpu_power}')
         self._update_mini()
 
     def exit_app(self):

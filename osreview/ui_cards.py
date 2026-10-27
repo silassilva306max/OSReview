@@ -1,6 +1,7 @@
 """Scrollable human-readable hardware/network specification cards, Tkinter only."""
 from __future__ import annotations
 import tkinter as tk
+import math
 from tkinter import ttk
 from typing import Any
 from osreview import app as base
@@ -302,11 +303,12 @@ def activity_cards(result:dict) -> list[dict]:
     return cards
 
 class SpeedGauge(tk.Frame):
-    """Visual speed indicator, not a sensor; all numbers come from live HTTP test."""
+    """Semicircular meter fed only by the voluntary network test."""
     def __init__(self,parent,label:str,color:str):
         super().__init__(parent,bg=base.PANEL)
         self.label=label;self.color=color;self.current=None;self.fraction=0.;self.stage='Aguardando teste'
-        self.canvas=tk.Canvas(self,width=220,height=160,bg=base.PANEL,bd=0,highlightthickness=0)
+        self.scale=100.;self.needle=0.;self._animation=None
+        self.canvas=tk.Canvas(self,width=250,height=205,bg=base.PANEL,bd=0,highlightthickness=0)
         self.canvas.pack(fill='x',expand=True,padx=7,pady=(4,2))
         self.canvas.bind('<Configure>',lambda e:self.draw())
         self.draw()
@@ -314,19 +316,48 @@ class SpeedGauge(tk.Frame):
     def update_value(self,mbps:float,progress:float,state:str):
         self.current=max(0.,float(mbps)) if mbps is not None else None;self.fraction=max(0.,min(1.,float(progress)))
         self.stage=state
-        self.draw()
+        for limit in (100,250,500,1000,2500,5000,10000):
+            if self.current is not None and self.current>self.scale and self.current<=limit:
+                self.scale=float(limit);break
+        if self.current is not None and self.current>self.scale:
+            self.scale=float(math.ceil(self.current/1000)*1000)
+        target=min((self.current or 0.)/self.scale,1.)
+        if self._animation is not None:
+            self.after_cancel(self._animation)
+        def step():
+            self.needle+=0.34*(target-self.needle)
+            self.draw()
+            if abs(target-self.needle)>0.004:
+                self._animation=self.after(25,step)
+            else:
+                self.needle=target;self._animation=None;self.draw()
+        step()
 
     def draw(self):
         c=self.canvas;c.delete('all')
-        w=max(180,c.winfo_width());cx=w//2
-        r=67;box=(cx-r,8,cx+r,8+2*r)
-        c.create_arc(*box,start=180,extent=-180,style='arc',outline=base.EDGE,width=14)
-        if self.fraction>0:
-            c.create_arc(*box,start=180,extent=-180*self.fraction,style='arc',outline=self.color,width=14)
-        c.create_text(cx,38,text=self.label,fill=base.MUTED,font=(base.FONT,10,'bold'))
-        c.create_text(cx,86,text=f'{self.current:,.1f}' if self.current is not None else '—',fill=base.WHITE,font=(base.FONT,26,'bold'))
-        c.create_text(cx,111,text='Mbps',fill=base.MUTED,font=(base.FONT,10))
-        c.create_text(cx,154,text=self.stage,fill=base.MUTED,font=(base.FONT,9))
+        w=max(190,c.winfo_width());cx=w/2;cy=91;r=64
+        box=(cx-r,cy-r,cx+r,cy+r)
+        c.create_arc(*box,start=210,extent=-240,style='arc',outline=base.EDGE,width=12)
+        if self.needle>0:
+            c.create_arc(*box,start=210,extent=-240*self.needle,style='arc',outline=self.color,width=12)
+        for i in range(11):
+            angle=math.radians(210-24*i)
+            inner=47 if i%2==0 else 51
+            x1=cx+inner*math.cos(angle);y1=cy-inner*math.sin(angle)
+            x2=cx+56*math.cos(angle);y2=cy-56*math.sin(angle)
+            c.create_line(x1,y1,x2,y2,fill=base.MUTED,width=2 if i%2==0 else 1)
+        angle=math.radians(210-240*self.needle)
+        c.create_line(cx,cy,cx+42*math.cos(angle),cy-42*math.sin(angle),
+                      fill=self.color,width=3,capstyle='round')
+        c.create_oval(cx-5,cy-5,cx+5,cy+5,fill=self.color,outline='')
+        c.create_text(cx,17,text=self.label,fill=base.MUTED,font=(base.FONT,10,'bold'))
+        c.create_text(cx,144,text=f'{self.current:,.1f} Mbps' if self.current is not None else '— Mbps',
+                      fill=base.WHITE,font=(base.FONT,19,'bold'))
+        c.create_text(cx,165,text=f'Escala 0–{self.scale:g} Mbps',fill=base.MUTED,font=(base.FONT,9))
+        c.create_text(cx,185,text=self.stage[:46],fill=base.MUTED,font=(base.FONT,9))
+        c.create_rectangle(12,198,w-12,202,fill=base.EDGE,outline='')
+        if self.fraction:
+            c.create_rectangle(12,198,12+(w-24)*self.fraction,202,fill=self.color,outline='')
 
 
 def local_devices_cards(data: dict) -> list[dict]:

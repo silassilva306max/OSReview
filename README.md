@@ -2,6 +2,11 @@
 
 Sistema de diagnóstico de hardware, processos, sensores, rede, eventos, energia e FPS.
 
+Na versão 0.9.0 RC, a interface oferece cinco paletas nos modos claro e escuro,
+benchmarks locais de CPU/RAM com gráfico e histórico, e controles confirmados de
+processos e serviços de terceiros. A metodologia dos testes está em
+`METODOLOGIA_BENCHMARK.md`.
+
 ## Distribuição para usuário final
 
 **Não executar `.bat` ou instalar Python.** A distribuição real usa instalador

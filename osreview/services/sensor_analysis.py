@@ -21,7 +21,7 @@ class Reading:
     source: str
 
     def display(self, suffix='°C') -> str:
-        precision=2 if suffix=='W' and 0 < abs(self.value) < 0.1 else 1
+        precision=2 if suffix=='W' and 0 <= self.value < 0.1 else 1
         return f'{self.value:.{precision}f} {suffix}'
 
     def provenance(self) -> str:
@@ -94,14 +94,35 @@ def power_readings(snapshot: dict | None) -> dict[str, Reading | None]:
             if r.group==group and r.name.casefold()==name and r.value>0:
                 return r
         return None
+    gpu=next((r for r in readings if r.group=='GPU' and r.value>0),None)
+    if gpu is None:gpu=next((r for r in readings if r.group=='GPU' and r.value==0),None)
     return {
         'cpu_package':find('CPU','cpu package'),
         'cpu_platform':find('CPU','cpu platform'),
-        'gpu': next((r for r in readings if r.group=='GPU' and r.value>0),None),
+        'gpu': gpu,
         'battery':next((r for r in readings if 'battery' in r.device.casefold() and r.value>0),None),
         'psu_total':next((r for r in readings if r.group=='Fonte / PSU' and r.value>0 and
                           any(t in r.name.casefold() for t in ('total','input power','output power'))),None)
     }
+
+
+def clock_readings(snapshot: dict | None) -> dict[str, Reading | None]:
+    """Only measured core clocks; bus and memory clocks are not GPU/CPU clocks."""
+    groups=(snapshot or {}).get('groups') or {}
+    result={}
+    for group in ('CPU','GPU'):
+        rows=[]
+        for row in groups.get(group) or []:
+            if str(row.get('type','')).casefold()!='clock':continue
+            name=str(row.get('name','')).casefold()
+            if not any(word in name for word in ('core','gpu','graphics','cpu')):continue
+            if any(word in name for word in ('memory','bus','ring','uncore')):continue
+            value=_number(row.get('value'))
+            if value is None or not 0 < value < 10000:continue
+            rows.append(Reading(value,group,str(row.get('name','Clock')),
+                                str(row.get('device','')),str(row.get('source',''))))
+        result[group]=max(rows,key=lambda reading:reading.value) if rows else None
+    return result
 
 
 def temperature_thresholds(snapshot: dict | None, group='SSD / HD') -> dict[str,float]:

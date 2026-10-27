@@ -18,7 +18,7 @@ from tkinter.scrolledtext import ScrolledText
 from typing import Any
 
 from osreview import __version__
-from osreview.services.benchmark import cpu_benchmark, memory_benchmark, BenchmarkCancelled
+from osreview.services.benchmark import timed_benchmark, BenchmarkCancelled
 from osreview.services.configuration import ConfigStore, configure_system_startup, get_system_startup_status
 from osreview.services.diagnostics import DiagnosticsEngine
 from osreview.services.history import HistoryStore
@@ -32,6 +32,8 @@ from osreview.services.software_updates import scan_upgrades
 from osreview.services.windows_update_agent import scan_pending_windows_updates
 from osreview.services.safe_cleanup import preview_cleanup, clean_category
 from osreview.services.online_ai import analyze_event, build_sanitized_event_payload
+from osreview.services.local_controls import (list_services, change_service,
+    close_process_window, terminate_process, reopen_executable)
 
 BG = '#0F131A'
 SIDEBAR = '#151A22'
@@ -45,6 +47,9 @@ GREEN = '#6ED6A5'
 BLUE = '#64B5FF'
 PURPLE = '#B79AF7'
 YELLOW = '#F2C16D'
+ACCENT = '#75A9BD'
+ACCENT_FG = '#08121A'
+ACTIVE_ACCENT = '#A9B8C5'
 FONT = 'Segoe UI'
 
 
@@ -56,8 +61,8 @@ def ui_label(parent, text='', size=11, color=WHITE, bold=False, **kwargs):
 def ui_button(parent, text, action, accent=False, width=None):
     options = {'width': width} if width else {}
     return tk.Button(parent, text=text, command=action, font=(FONT, 10, 'bold'),
-                     bg=RED if accent else PANEL2, fg='#11151A' if accent else WHITE,
-                     activebackground='#FD8580' if accent else EDGE, activeforeground=WHITE,
+                     bg=ACCENT if accent else PANEL2, fg=ACCENT_FG if accent else WHITE,
+                     activebackground=ACTIVE_ACCENT if accent else EDGE, activeforeground=WHITE,
                      relief='flat', bd=0, highlightthickness=0, padx=14, pady=9, cursor='hand2', **options)
 
 
@@ -107,8 +112,15 @@ class OSReviewApp(tk.Tk):
         self.shutdown = threading.Event()
         self.bench_stop = threading.Event()
         self.bench_running = False
+        self.bench_samples: list[dict] = []
+        self.bench_chart_duration = 180
         self.latest: dict[str, Any] | None = None
         self.procs: list[dict[str, Any]] = []
+        self._last_process_scan = 0.0
+        self._cached_processes: list[dict[str, Any]] = []
+        self._last_closed_app: dict | None = None
+        self.service_rows: dict[str, dict] = {}
+        self.service_loading = False
         self.health: dict[str, Any] | None = None
         self.inventory: dict[str, Any] | None = None
         self.event_data: dict[str, Any] | None = None
@@ -316,7 +328,7 @@ class OSReviewApp(tk.Tk):
 
     def _make_benchmark(self):
         page = self._page('benchmark', 'Benchmark integrado',
-                          'Testes sintéticos voluntários, com limites de duração e sem estresse prolongado.')
+                          'CPU de um núcleo ou cópia de RAM, por 3, 5 ou 10 minutos. Compare somente resultados do mesmo método.')
         outer = tk.Frame(page, bg=BG)
         outer.pack(fill='both', expand=True)
         rail = self._panel(outer, 'TIPO DE TESTE')
@@ -324,7 +336,7 @@ class OSReviewApp(tk.Tk):
         rail.pack(side='left', fill='y', padx=(0, 12))
         rail.pack_propagate(False)
         self.bench_type = tk.StringVar(value='CPU — núcleo único')
-        for option in ('CPU — núcleo único', 'Memória RAM', 'GPU / VRAM (futuro)', 'Disco SMART (futuro)'):
+        for option in ('CPU — núcleo único', 'Memória RAM'):
             tk.Radiobutton(rail, text=option, variable=self.bench_type, value=option,
                            bg=PANEL, fg=WHITE, selectcolor=PANEL2, activebackground=PANEL,
                            activeforeground=WHITE, font=(FONT, 10), anchor='w', padx=10,
@@ -333,23 +345,51 @@ class OSReviewApp(tk.Tk):
         self.bench_start.pack(fill='x', padx=12, pady=(22, 9))
         ui_button(rail, '■ Interromper', self.stop_benchmark).pack(fill='x', padx=12, pady=(0, 9))
         ui_button(rail, '↺ Limpar resultado', self.reset_benchmark).pack(fill='x', padx=12)
-        ui_label(rail, 'Testes de hardware não provam integridade física.', 9, MUTED,
-                 wraplength=202, justify='left').pack(anchor='w', padx=13, pady=25)
-        center = self._panel(outer, 'CONFIGURAÇÃO E RESULTADOS',
-                             'Escolha uma duração. Todos os controles abaixo alteram o teste de verdade.')
+        ui_label(rail, 'Teste voluntário e cancelável. Pontuação interna: mediana do desempenho medido; não equivale a Geekbench ou PassMark.',
+                 9, MUTED, wraplength=202, justify='left').pack(anchor='w', padx=13, pady=25)
+        center = self._panel(outer, 'DESEMPENHO E ESTABILIDADE',
+                             'A duração define o tempo real de execução. O gráfico registra a taxa em cada intervalo.')
         center.pack(side='left', fill='both', expand=True)
         cfg = tk.Frame(center, bg=PANEL)
-        cfg.pack(fill='x', padx=17, pady=(8, 16))
-        ui_label(cfg, 'CARGA', 9, MUTED, bold=True).pack(side='left', padx=(0, 10))
-        self.bench_size = tk.StringVar(value='Pequena')
-        for value in ('Pequena', 'Média', 'Grande'):
-            tk.Radiobutton(cfg, text=value, variable=self.bench_size, value=value, bg=PANEL,
-                           fg=WHITE, selectcolor=PANEL2, activebackground=PANEL,
-                           activeforeground=WHITE, font=(FONT, 10), padx=8).pack(side='left', padx=4)
+        cfg.pack(fill='x', padx=17, pady=(8, 8))
+        ui_label(cfg, 'DURAÇÃO', 9, MUTED, bold=True).pack(side='left', padx=(0, 8))
+        self.bench_duration=tk.StringVar(value='3 min')
+        ttk.Combobox(cfg,textvariable=self.bench_duration,values=('3 min','5 min','10 min'),
+                     state='readonly',width=9).pack(side='left',padx=(0,20))
+        ui_label(cfg, 'BLOCO RAM', 9, MUTED, bold=True).pack(side='left', padx=(0, 8))
+        self.bench_size=tk.StringVar(value='64 MB')
+        ttk.Combobox(cfg,textvariable=self.bench_size,values=('32 MB','64 MB','128 MB'),
+                     state='readonly',width=9).pack(side='left')
         self.bench_status = ui_label(center, 'Pronto para iniciar', 12, GREEN, bold=True)
-        self.bench_status.pack(anchor='w', padx=18, pady=(8, 12))
-        self.bench_result = text_area(center, 15)
-        self.bench_result.pack(fill='both', expand=True, padx=17, pady=(0, 17))
+        self.bench_status.pack(anchor='w', padx=18, pady=(3, 7))
+        self.bench_progress=ttk.Progressbar(center,mode='determinate',maximum=100)
+        self.bench_progress.pack(fill='x',padx=18,pady=(0,10))
+        cards=tk.Frame(center,bg=PANEL);cards.pack(fill='x',padx=16)
+        self.bench_metrics={}
+        for key,title in [('score','PONTUAÇÃO'),('stability','ESTABILIDADE'),
+                          ('range','FAIXA MEDIDA'),('duration','TEMPO')]:
+            card=tk.Frame(cards,bg=PANEL2,highlightbackground=EDGE,highlightthickness=1)
+            card.pack(side='left',fill='x',expand=True,padx=3)
+            ui_label(card,title,8,MUTED,True,bg=PANEL2).pack(anchor='w',padx=9,pady=(6,2))
+            value=ui_label(card,'—',13,BLUE,True,bg=PANEL2)
+            value.pack(anchor='w',padx=9,pady=(0,7))
+            self.bench_metrics[key]=value
+        self.bench_chart=tk.Canvas(center,height=135,bg=PANEL2,highlightthickness=1,
+                                   highlightbackground=EDGE)
+        self.bench_chart.pack(fill='x',padx=19,pady=(10,8))
+        self.bench_chart.bind('<Configure>',lambda _e:self._draw_bench_chart())
+        ui_label(center,'HISTÓRICO DE TESTES LOCAIS',9,MUTED,True).pack(anchor='w',padx=18,pady=(2,4))
+        columns=('date','kind','duration','score','stability')
+        self.bench_history=ttk.Treeview(center,columns=columns,show='headings',height=4,style='OS.Treeview')
+        for key,title,width in [('date','DATA',135),('kind','TESTE',130),('duration','TEMPO',75),
+                                ('score','RESULTADO',125),('stability','ESTABILIDADE',95)]:
+            self.bench_history.heading(key,text=title)
+            self.bench_history.column(key,width=width,anchor='center')
+        self.bench_history.pack(fill='x',padx=18,pady=(0,7))
+        self.bench_result = text_area(center, 3)
+        self.bench_result.pack(fill='both',expand=True,padx=17,pady=(0,12))
+        set_text(self.bench_result,'Escolha o teste e a duração. Nenhum benchmark começa automaticamente.')
+        self.refresh_bench_history()
 
     def _make_processes(self):
         page = self._page('processes', 'Aplicativos e processos',
@@ -383,7 +423,14 @@ class OSReviewApp(tk.Tk):
         self.proc_tree.pack(side='left', fill='both', expand=True)
         self.proc_note = ui_label(page, 'A porcentagem de CPU dos processos é normalizada pelo número de CPUs lógicas.',
                                    10, MUTED, bg=BG)
-        self.proc_note.pack(anchor='w', pady=12)
+        self.proc_note.pack(anchor='w', pady=(7,3))
+        actions=tk.Frame(page,bg=BG);actions.pack(fill='x',pady=(0,3))
+        ui_button(actions,'Fechar janela',lambda:self._process_action('close')).pack(side='left',padx=(0,5))
+        ui_button(actions,'Forçar encerrar',lambda:self._process_action('terminate')).pack(side='left',padx=5)
+        ui_button(actions,'Reabrir último aplicativo',self._reopen_last_app).pack(side='left',padx=5)
+        self.proc_action_status=ui_label(page,'Selecione um aplicativo seu. Processos do sistema são protegidos.',
+                                         9,MUTED,bg=BG)
+        self.proc_action_status.pack(anchor='w')
 
     def _make_hardware(self):
         page = self._page('hardware', 'Inventário de hardware e GPU integrada',
@@ -662,14 +709,31 @@ class OSReviewApp(tk.Tk):
 
     def _make_windows(self):
         page = self._page('windows', 'Windows Update, serviços e eventos',
-                          'Consultas locais em modo leitura. Não altera políticas, serviços ou drivers.')
+                          'Diagnóstico local. Serviços de terceiros podem ser iniciados ou parados após confirmação, sem alterar sua configuração.')
         tools = tk.Frame(page, bg=BG)
         tools.pack(fill='x', pady=(0, 12))
         ui_button(tools, 'Atualizar diagnóstico do Windows', self.request_analysis, True).pack(side='left')
+        ui_button(tools, 'Listar serviços', self.request_services).pack(side='left',padx=7)
         self.windows_at = ui_label(tools, 'Aguardando verificação...', 10, MUTED, bg=BG)
         self.windows_at.pack(side='left', padx=13)
-        self.windows_text = text_area(page, 24)
-        self.windows_text.pack(fill='both', expand=True)
+        services=tk.Frame(page,bg=BG);services.pack(fill='both',expand=True)
+        cols=('display','status','start_type','manageable')
+        self.service_tree=ttk.Treeview(services,columns=cols,show='headings',height=8,style='OS.Treeview')
+        for key,title,width in [('display','SERVIÇO',310),('status','ESTADO',110),
+                                ('start_type','INÍCIO',100),('manageable','CONTROLE',120)]:
+            self.service_tree.heading(key,text=title)
+            self.service_tree.column(key,width=width,anchor='w' if key=='display' else 'center')
+        self.service_tree.pack(side='left',fill='both',expand=True)
+        service_scroll=ttk.Scrollbar(services,orient='vertical',command=self.service_tree.yview)
+        service_scroll.pack(side='right',fill='y')
+        self.service_tree.configure(yscrollcommand=service_scroll.set)
+        actions=tk.Frame(page,bg=BG);actions.pack(fill='x',pady=6)
+        ui_button(actions,'Parar serviço selecionado',lambda:self._service_action('stop')).pack(side='left',padx=(0,6))
+        ui_button(actions,'Iniciar serviço selecionado',lambda:self._service_action('start')).pack(side='left')
+        self.service_action_status=ui_label(page,'Serviços do Windows e de segurança ficam protegidos.',9,MUTED,bg=BG)
+        self.service_action_status.pack(anchor='w',pady=(0,5))
+        self.windows_text = text_area(page, 8)
+        self.windows_text.pack(fill='both',expand=True)
 
     def _make_history(self):
         page = self._page('history', 'Histórico e evolução',
@@ -719,8 +783,16 @@ class OSReviewApp(tk.Tk):
                         fg=WHITE if tab == key else MUTED)
         if key == 'history':
             self.refresh_history()
+        if key == 'benchmark':
+            self.refresh_bench_history()
+            self._draw_bench_chart()
+        if key == 'dashboard' and self.latest:
+            self._draw_graph()
+        if key == 'processes':
+            self._refresh_processes()
         if key == 'windows':
             self.refresh_windows()
+            if not self.service_rows:self.request_services()
         if key == 'hardware':
             self._refresh_hardware()
         if key == 'security':
@@ -732,7 +804,12 @@ class OSReviewApp(tk.Tk):
         while not self.shutdown.is_set():
             try:
                 sample = self.monitor.collect().to_dict()
-                processes = self.monitor.get_process_snapshot()
+                now=time.monotonic()
+                interval=3 if self.selected=='processes' else 12
+                if now-self._last_process_scan>=interval or not self._cached_processes:
+                    self._cached_processes=self.monitor.get_process_snapshot()
+                    self._last_process_scan=now
+                processes = self._cached_processes
                 self.events.put(('sample', sample, processes))
             except Exception as exc:
                 self.events.put(('error', 'Coleta de sensores', str(exc)))
@@ -823,12 +900,30 @@ class OSReviewApp(tk.Tk):
             elif kind == 'ai-error':
                 self.event_status.configure(text='Falha na IA online: ' + msg[1], fg=YELLOW)
                 self.notice.configure(text='IA ONLINE INDISPONÍVEL', fg=YELLOW)
+            elif kind == 'bench-progress':
+                progress=msg[1]
+                self.bench_samples=progress['samples']
+                self.bench_chart_duration=progress['duration']
+                self.bench_progress['value']=100*progress['elapsed']/progress['duration']
+                self.bench_status.configure(text=f"Teste em execução · {progress['elapsed']:.0f} / {progress['duration']} s",
+                                            fg=BLUE)
+                if self.selected=='benchmark':self._draw_bench_chart()
             elif kind == 'bench-result':
                 self.bench_running = False
-                self.bench_status.configure(text='Teste concluído', fg=GREEN)
-                set_text(self.bench_result, json.dumps(msg[1], ensure_ascii=False, indent=2))
+                result=msg[1]
+                self.bench_progress['value']=100
+                self.bench_samples=result['samples']
+                self.bench_chart_duration=result['duration_seconds']
+                self.bench_status.configure(text='Teste concluído · resultado salvo localmente', fg=GREEN)
+                self.bench_metrics['score'].configure(text=f"{result['score']:,.0f} {result['unit']}")
+                self.bench_metrics['stability'].configure(text=f"{result['stability_percent']:.1f}%")
+                self.bench_metrics['range'].configure(text=f"{result['min_score']:,.0f}–{result['max_score']:,.0f}")
+                self.bench_metrics['duration'].configure(text=f"{result['duration_seconds']//60} min")
+                set_text(self.bench_result,result['note'])
+                if self.selected=='benchmark':self._draw_bench_chart()
                 self.store.append({'type': 'benchmark', 'timestamp_readable': datetime.now().strftime('%d/%m/%Y %H:%M:%S'),
-                                   'result': msg[1], 'version': __version__})
+                                   'result': result, 'version': __version__})
+                self.refresh_bench_history()
             elif kind == 'bench-stop':
                 self.bench_running = False
                 self.bench_status.configure(text='Teste interrompido', fg=YELLOW)
@@ -836,6 +931,34 @@ class OSReviewApp(tk.Tk):
                 self.bench_running = False
                 self.bench_status.configure(text='Falha durante o benchmark', fg=RED)
                 set_text(self.bench_result, msg[1])
+            elif kind == 'services-list':
+                self.service_loading=False
+                if msg[2]:
+                    self.service_action_status.configure(text='Falha ao listar serviços: '+msg[2],fg=YELLOW)
+                else:
+                    self.service_rows={row['name']:row for row in msg[1]}
+                    for item in self.service_tree.get_children():
+                        self.service_tree.delete(item)
+                    for row in msg[1]:
+                        self.service_tree.insert('','end',iid=row['name'],values=(row['display'],
+                            row['status'],row['start_type'],'Permitido' if row['manageable'] else 'Protegido'))
+                    self.service_action_status.configure(text=f"{len(msg[1])} serviços listados. Controle apenas de terceiros não protegidos.",fg=MUTED)
+            elif kind == 'service-action':
+                self.service_action_status.configure(text=msg[1],fg=GREEN if msg[2] else YELLOW)
+                self.request_services()
+            elif kind == 'process-action':
+                action,info,error=msg[1:]
+                if error:
+                    self.proc_action_status.configure(text=error,fg=YELLOW)
+                else:
+                    if action=='terminate':self._last_closed_app=info
+                    self.proc_action_status.configure(text=(
+                        f"Solicitação enviada para {info['name']} (PID {info['pid']}). " +
+                        ('A janela pode pedir confirmação de salvamento.' if action=='close' else
+                         'O aplicativo pode ser reaberto, mas a sessão anterior não é restaurada.')),fg=GREEN)
+                    self._last_process_scan=0
+            elif kind == 'process-reopened':
+                self.proc_action_status.configure(text=msg[1],fg=GREEN if msg[2] else YELLOW)
             elif kind == 'error':
                 self.left_status.configure(text=f'Falha: {msg[1]}. Consulte o terminal/log.', fg=YELLOW)
             elif kind == 'show':
@@ -871,8 +994,8 @@ class OSReviewApp(tk.Tk):
             width = max(bar.winfo_width(), 70)
             bar.create_rectangle(0, 0, width * min(max(pct, 0), 100) / 100, 5,
                                  fill=color, outline='')
-        self._draw_graph()
-        self._refresh_processes()
+        if self.selected=='dashboard':self._draw_graph()
+        if self.selected=='processes':self._refresh_processes()
         self.left_status.configure(text='●  Monitoramento ativo\n' + datetime.now().strftime('%H:%M:%S'), fg=GREEN)
 
     def _draw_graph(self):
@@ -965,6 +1088,72 @@ class OSReviewApp(tk.Tk):
         if hasattr(self,'proc_counter'):
             self.proc_counter.configure(text=f'{len(rows)} de {len(self.procs)} processos visíveis')
 
+    def _process_action(self, action: str):
+        selected=self.proc_tree.selection()
+        if not selected:
+            self.proc_action_status.configure(text='Selecione um processo na tabela.',fg=YELLOW);return
+        pid=int(selected[0])
+        row=next((item for item in self.procs if item['pid']==pid),None)
+        name=row['name'] if row else f'PID {pid}'
+        warning=('Enviar pedido para fechar a janela? O aplicativo poderá solicitar que você salve o trabalho.'
+                 if action=='close' else 'Forçar o encerramento pode perder dados não salvos. Continuar?')
+        if not messagebox.askyesno('OSReview · confirmar ação',f'{name} (PID {pid})\n\n{warning}'):
+            return
+        self.proc_action_status.configure(text='Executando ação solicitada...',fg=BLUE)
+        def worker():
+            try:
+                info=close_process_window(pid) if action=='close' else terminate_process(pid)
+                self.events.put(('process-action',action,info,None))
+            except Exception as exc:
+                self.events.put(('process-action',action,None,str(exc)))
+        threading.Thread(target=worker,daemon=True,name='osreview-process-action').start()
+
+    def _reopen_last_app(self):
+        info=self._last_closed_app
+        if not info:
+            self.proc_action_status.configure(text='Nenhum aplicativo encerrado nesta sessão.',fg=YELLOW);return
+        path=info['exe']
+        if not messagebox.askyesno('OSReview · reabrir aplicativo',
+                f'Reabrir o executável abaixo? A sessão e documentos anteriores não serão restaurados.\n\n{path}'):
+            return
+        def worker():
+            try:
+                pid=reopen_executable(path)
+                self.events.put(('process-reopened',f'Aplicativo iniciado com PID {pid}.',True))
+            except Exception as exc:
+                self.events.put(('process-reopened',f'Não foi possível reabrir: {exc}',False))
+        threading.Thread(target=worker,daemon=True,name='osreview-process-reopen').start()
+
+    def request_services(self):
+        if self.service_loading:return
+        self.service_loading=True
+        self.service_action_status.configure(text='Consultando serviços locais...',fg=BLUE)
+        def worker():
+            try:self.events.put(('services-list',list_services(),None))
+            except Exception as exc:self.events.put(('services-list',[],str(exc)))
+        threading.Thread(target=worker,daemon=True,name='osreview-service-list').start()
+
+    def _service_action(self, action: str):
+        selected=self.service_tree.selection()
+        if not selected:
+            self.service_action_status.configure(text='Selecione um serviço na tabela.',fg=YELLOW);return
+        name=selected[0]
+        row=self.service_rows.get(name)
+        if not row or not row['manageable']:
+            self.service_action_status.configure(text='Serviço do Windows ou de segurança protegido.',fg=YELLOW);return
+        verb='iniciar' if action=='start' else 'parar'
+        if not messagebox.askyesno('OSReview · confirmar serviço',
+                f'Deseja {verb} {row["display"]} ({name})?\n\nO Windows pode negar a operação. Nenhuma permissão será elevada automaticamente.'):
+            return
+        self.service_action_status.configure(text='Enviando comando ao Gerenciador de Serviços...',fg=BLUE)
+        def worker():
+            try:
+                result=change_service(name,action)
+                self.events.put(('service-action',result,True))
+            except Exception as exc:
+                self.events.put(('service-action',f'Ação não concluída: {exc}',False))
+        threading.Thread(target=worker,daemon=True,name='osreview-service-action').start()
+
     def refresh_windows(self):
         if not self.health:
             set_text(self.windows_text, 'Aguardando primeira verificação...')
@@ -1020,7 +1209,9 @@ class OSReviewApp(tk.Tk):
             lines.append(f"[{rec.get('timestamp_readable','?')}]  {typ.upper()} • versão {rec.get('version', '?')}")
             if typ == 'benchmark':
                 result = rec.get('result', {})
-                lines.append(f"  {result.get('type','Teste')} | {result.get('score_primes_s',result.get('copy_mb_s','?'))} pontos / MB/s")
+                score=result.get('score',result.get('score_primes_s',result.get('copy_mb_s','?')))
+                unit=result.get('unit','primos/s' if 'score_primes_s' in result else 'MB/s')
+                lines.append(f"  {result.get('type','Teste')} | {score} {unit}")
             else:
                 sample = rec.get('sample', {})
                 lines.append(f"  CPU {sample.get('cpu_percent','?')}% | RAM {sample.get('memory_percent','?')}%")
@@ -1029,25 +1220,69 @@ class OSReviewApp(tk.Tk):
     def _benchmark_type_changed(self):
         self.bench_status.configure(text=f'Selecionado: {self.bench_type.get()}', fg=BLUE)
 
+    def _draw_bench_chart(self):
+        chart=getattr(self,'bench_chart',None)
+        if chart is None:return
+        chart.delete('all')
+        w=max(chart.winfo_width(),250);h=max(chart.winfo_height(),120)
+        x0,x1,y0,y1=43,w-15,12,h-27
+        for fraction in (0,.5,1):
+            y=y1-(y1-y0)*fraction
+            chart.create_line(x0,y,x1,y,fill=EDGE,dash=(2,5))
+        points=self.bench_samples
+        if not points:
+            chart.create_text(w/2,h/2,text='Gráfico de desempenho aparecerá durante o teste',
+                              fill=MUTED,font=(FONT,10))
+            return
+        ceiling=max(1.,max(row['value'] for row in points)*1.1)
+        duration=max(self.bench_chart_duration,points[-1]['elapsed'],1)
+        coords=[]
+        for row in points:
+            coords.extend((x0+(x1-x0)*row['elapsed']/duration,
+                           y1-(y1-y0)*row['value']/ceiling))
+        if len(coords)>=4:chart.create_line(*coords,fill=BLUE,width=2,smooth=False)
+        elif coords:chart.create_oval(coords[0]-3,coords[1]-3,coords[0]+3,coords[1]+3,
+                                      fill=BLUE,outline='')
+        chart.create_text(25,y0,text=f'{ceiling:.0f}',fill=MUTED,font=(FONT,8))
+        chart.create_text(25,y1,text='0',fill=MUTED,font=(FONT,8))
+        chart.create_text(x1,y1+14,text=f'{int(duration//60)} min',anchor='e',fill=MUTED,font=(FONT,8))
+
+    def refresh_bench_history(self):
+        tree=getattr(self,'bench_history',None)
+        if tree is None:return
+        for item in tree.get_children():tree.delete(item)
+        try:records=self.store.load()
+        except (OSError,ValueError):records=[]
+        for row in [rec for rec in records if rec.get('type')=='benchmark'][-8:][::-1]:
+            result=row.get('result') or {}
+            score=result.get('score',result.get('score_primes_s',result.get('copy_mb_s')))
+            unit=result.get('unit','primos/s' if 'score_primes_s' in result else 'MB/s')
+            duration=result.get('duration_seconds')
+            tree.insert('', 'end', values=(row.get('timestamp_readable','?'),result.get('type','Teste'),
+                f'{duration//60} min' if isinstance(duration,(int,float)) else '—',
+                f'{score:,.0f} {unit}' if isinstance(score,(int,float)) else '—',
+                f"{result['stability_percent']:.1f}%" if isinstance(result.get('stability_percent'),(int,float)) else '—'))
+
     def start_benchmark(self):
         if self.bench_running:
             self.bench_status.configure(text='Já existe um teste em andamento.', fg=YELLOW)
             return
         kind = self.bench_type.get()
-        if '(futuro)' in kind:
-            self.bench_status.configure(text='Este módulo não está implementado na v0.3.0.', fg=YELLOW)
-            return
-        size = self.bench_size.get()
+        size = int(self.bench_size.get().split()[0])
+        duration = int(self.bench_duration.get().split()[0])*60
         self.bench_stop.clear()
         self.bench_running = True
+        self.bench_samples=[]
+        self.bench_chart_duration=duration
+        self.bench_progress['value']=0
+        for label in self.bench_metrics.values():label.configure(text='—')
+        self._draw_bench_chart()
         self.bench_status.configure(text='Teste em execução. Evite iniciar durante trabalho importante.', fg=YELLOW)
-        set_text(self.bench_result, f'Teste selecionado: {kind}\nCarga: {size}\n')
+        set_text(self.bench_result, f'Teste: {kind}\nDuração: {duration//60} min · Bloco RAM: {size} MB. O resultado será salvo localmente.')
         def worker():
             try:
-                if kind.startswith('CPU'):
-                    result = cpu_benchmark({'Pequena':3, 'Média':5, 'Grande':8}[size], self.bench_stop)
-                else:
-                    result = memory_benchmark({'Pequena':32, 'Média':64, 'Grande':128}[size], self.bench_stop)
+                result=timed_benchmark('cpu' if kind.startswith('CPU') else 'memory',duration,size,
+                                       self.bench_stop,lambda update:self.events.put(('bench-progress',update)))
                 self.events.put(('bench-result', result))
             except BenchmarkCancelled:
                 self.events.put(('bench-stop',))

@@ -1,5 +1,10 @@
 # v0.9.0 RC — build Windows x64 e estabilização
 
+- Interface com cinco paletas de cores em modos escuro e claro, barras de rolagem atualizadas, medidores de download/upload redesenhados e botão **Sair do OSReview** na tela principal.
+- Benchmark de CPU e RAM com duração selecionável de 3, 5 ou 10 minutos, gráfico de amostras, pontuação interna, estabilidade e histórico local. A pontuação é comparável apenas ao mesmo método do OSReview.
+- Cards de CPU/GPU mostram frequência atual e a faixa observada da CPU; potência de GPU medida em zero continua visível como `0.00 W`.
+- Telas de Processos e Windows/Serviços oferecem fechamento de janela, encerramento explícito, reabertura do último executável e início/parada de serviços de terceiros, com confirmação e bloqueio de itens protegidos.
+- Reduzida a frequência de varredura de processos quando a tela está oculta; gráficos e tabelas só redesenham enquanto visíveis. Pré-visualizações antigas sem uso foram removidas de `assets/`.
 - Card de memória agora mostra capacidade disponível/total e frequência configurada dos módulos quando o Windows a informa; sinaliza frequência nominal, mista ou ausente com clareza.
 - Minimizar a janela envia o app para a bandeja quando essa opção está ativa; painel ao passar o mouse mostra também o tráfego de rede.
 - Compilados `OSReview.exe`, ponte .NET 8 self-contained e instalador Inno Setup em Windows x64.
