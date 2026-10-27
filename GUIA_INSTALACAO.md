@@ -1,10 +1,10 @@
-# OSReview v0.9.1 RC1 — Instalação GUI sem Python e sem Terminal
+# OSReview v0.9.1 RC2 — Instalação GUI sem Python e sem Terminal
 
 ## USUÁRIO FINAL (somente binários compilados)
 
 ### Windows 10/11 x64
 
-1. Duplo clique em **OSReview-Setup-0.9.1-rc.1-Windows-x64-NAO-ASSINADO.exe**.
+1. Duplo clique em **OSReview-Setup-0.9.1-rc.2-Windows-x64-NAO-ASSINADO.exe**.
 2. Escolha a pasta em que o OSReview será instalado (padrão: AppData do usuário).
 3. Marque, se desejar, **Criar atalho na área de trabalho** e/ou **Iniciar com o Windows**.
 4. Conclua o assistente. Abra o app por **OSReview.exe**, atalho ou menu Iniciar.
@@ -22,9 +22,9 @@ UAC, Defender, Avast nem integridade de memória para contornar bloqueios.
 
 ### Atualizar a instalação existente
 
-Na primeira passagem de 0.9.0 para 0.9.1 RC1, baixe e execute o novo instalador
+Na primeira passagem de 0.9.0 para 0.9.1 RC2, baixe e execute o novo instalador
 manualmente: a versão antiga ainda não sabe verificar atualizações. A partir
-de 0.9.1 RC1, a tela **Atualizações** consulta as Releases públicas do GitHub
+de 0.9.1 RC2, a tela **Atualizações** consulta as Releases públicas do GitHub
 quando o app abre (opção configurável). Se houver versão nova, escolha **Baixar
 atualização**, aguarde a conferência de SHA-256 e a análise do Avast, e então
 clique em **Instalar agora**. O assistente do Inno Setup usa a pasta instalada

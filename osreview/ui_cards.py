@@ -26,10 +26,7 @@ class SpecCards(tk.Frame):
         self.canvas.configure(yscrollcommand=self.vbar.set)
         self.body.bind('<Configure>',lambda _e:self.canvas.configure(scrollregion=self.canvas.bbox('all')))
         self.canvas.bind('<Configure>',lambda e:self.canvas.itemconfigure(self.window,width=e.width))
-        # Only consume wheel while hovering this panel (do not trap other menus).
-        def wheel(e):self.canvas.yview_scroll(-1 if e.delta>0 else 1,'units')
-        self.canvas.bind('<MouseWheel>',wheel)
-        self.body.bind('<MouseWheel>',wheel)
+        # The application routes wheel events from nested card labels to this canvas.
         self.current=[]
         self._pending_scroll=None
 

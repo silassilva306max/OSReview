@@ -50,7 +50,7 @@ def test_protected_service_cannot_reach_service_control(monkeypatch):
             return {'name': 'AvastAgent', 'binpath': r'C:\Program Files\Avast\agent.exe'}
 
     monkeypatch.setattr(local_controls.platform, 'system', lambda: 'Windows')
-    monkeypatch.setattr(local_controls.psutil, 'win_service_get', lambda _name: Service())
+    monkeypatch.setattr(local_controls.psutil, 'win_service_get', lambda _name: Service(), raising=False)
     with pytest.raises(PermissionError):
         local_controls.change_service('AvastAgent', 'stop')
 

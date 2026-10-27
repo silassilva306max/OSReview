@@ -152,6 +152,12 @@ class OSReviewApp(tk.Tk):
         self._style_tree()
         self._layout()
         self.switch('dashboard')
+        self._wheel_targets_cache: dict[str, list[tk.Widget]] = {}
+        self._wheel_target: tk.Widget | None = None
+        self._wheel_remainder = 0
+        self.bind_all('<MouseWheel>', self._route_mouse_wheel, add='+')
+        self.bind_all('<Button-4>', self._route_mouse_wheel, add='+')
+        self.bind_all('<Button-5>', self._route_mouse_wheel, add='+')
         safe_mode = os.environ.get('OSREVIEW_SAFE_MODE') == '1'
         if not safe_mode:
             self.tray.start()
@@ -921,6 +927,93 @@ class OSReviewApp(tk.Tk):
             self._refresh_security()
         if key == 'events':
             self._refresh_events()
+
+    @staticmethod
+    def _descends_from(widget: tk.Widget, ancestor: tk.Widget) -> bool:
+        while widget is not None:
+            if widget is ancestor:
+                return True
+            widget = widget.master
+        return False
+
+    @staticmethod
+    def _scrollable(widget: tk.Widget) -> bool:
+        try:
+            first, last = widget.yview()
+            return last - first < 0.999
+        except (AttributeError, tk.TclError):
+            return False
+
+    def _page_wheel_targets(self, key: str) -> list[tk.Widget]:
+        cached = self._wheel_targets_cache.get(key)
+        if cached is not None and all(item.winfo_exists() for item in cached):
+            return cached
+        targets: list[tk.Widget] = []
+        def collect(widget: tk.Widget):
+            canvas = getattr(widget, 'canvas', None)
+            if isinstance(canvas, tk.Canvas) and canvas.cget('yscrollcommand'):
+                targets.append(canvas)
+                return
+            if isinstance(widget, (tk.Text, ttk.Treeview)):
+                targets.append(widget)
+                return
+            if isinstance(widget, tk.Canvas) and widget.cget('yscrollcommand'):
+                targets.append(widget)
+                return
+            for child in widget.winfo_children():
+                collect(child)
+        collect(self.tabs[key])
+        self._wheel_targets_cache[key] = targets
+        return targets
+
+    @staticmethod
+    def _wheel_distance(widget: tk.Widget, x: int, y: int) -> int:
+        left, top = widget.winfo_rootx(), widget.winfo_rooty()
+        right, bottom = left + widget.winfo_width(), top + widget.winfo_height()
+        dx = max(left - x, 0, x - right)
+        dy = max(top - y, 0, y - bottom)
+        return dx * dx + dy * dy
+
+    def _route_mouse_wheel(self, event):
+        widget = event.widget
+        if widget.winfo_toplevel() is not self:
+            return
+        sidebar = getattr(self, 'nav_sidebar', None)
+        if sidebar is not None and self._descends_from(widget, sidebar):
+            target = getattr(self, 'nav_canvas', None)
+        else:
+            page = self.tabs.get(self.selected)
+            if page is None or not self._descends_from(widget, page):
+                return
+            if isinstance(widget, ttk.Combobox):
+                return
+            # Text and Treeview already receive native Tk class wheel bindings.
+            if isinstance(widget, (tk.Text, ttk.Treeview)) and self._scrollable(widget):
+                return
+            candidates = [item for item in self._page_wheel_targets(self.selected)
+                          if item.winfo_ismapped() and self._scrollable(item)]
+            if not candidates:
+                return
+            target = min(candidates, key=lambda item:
+                         self._wheel_distance(item, event.x_root, event.y_root))
+        if target is None or not target.winfo_ismapped() or not self._scrollable(target):
+            return
+        if target is not self._wheel_target:
+            self._wheel_target = target
+            self._wheel_remainder = 0
+        if getattr(event, 'num', None) in (4, 5):
+            steps = -1 if event.num == 4 else 1
+        else:
+            delta = getattr(event, 'delta', 0)
+            if platform.system() == 'Darwin' and delta:
+                steps = -1 if delta > 0 else 1
+            else:
+                self._wheel_remainder += delta
+                steps = -int(self._wheel_remainder / 120)
+                self._wheel_remainder += steps * 120
+        if steps:
+            target.yview_scroll(steps, 'units')
+            return 'break'
 
     def _sampling_worker(self):
         while not self.shutdown.is_set():

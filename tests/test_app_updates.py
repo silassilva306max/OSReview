@@ -55,7 +55,7 @@ def release_json(tag: str, content: bytes, *, prerelease=True, digest=True):
 
 def test_newer_release_selected_and_prerelease_setting_respected():
     content = b'MZ' + b'a' * 2048
-    releases = [release_json('v0.9.1-rc.2', content), release_json('v0.9.1', content, prerelease=False)]
+    releases = [release_json('v0.9.1-rc.3', content), release_json('v0.9.1', content, prerelease=False)]
     def open_api(_request, timeout):
         assert timeout > 0
         return Response(json.dumps(releases).encode(), API_URL)
@@ -65,7 +65,7 @@ def test_newer_release_selected_and_prerelease_setting_respected():
     assert check_for_updates(False, open_api).release.tag == 'v0.9.1'
     releases.pop()
     assert check_for_updates(False, open_api).release is None
-    assert check_for_updates(True, open_api).release.tag == 'v0.9.1-rc.2'
+    assert check_for_updates(True, open_api).release.tag == 'v0.9.1-rc.3'
 
 
 def test_newer_release_without_verified_asset_is_not_offered():

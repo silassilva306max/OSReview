@@ -10,9 +10,9 @@
 
 ## Configuração de segurança
 
-- Varredura de segredos, proteção contra push de credenciais, alertas de dependências, atualizações de segurança do Dependabot e relato privado de vulnerabilidades: ativados e verificados pela API autenticada do GitHub. Nenhum alerta aberto de segredos ou Dependabot foi retornado no momento da consulta; a varredura recém-habilitada pode produzir alertas posteriormente.
+- Varredura de segredos, proteção contra push de credenciais, alertas de dependências, atualizações de segurança do Dependabot e relato privado de vulnerabilidades: ativados e verificados pela API autenticada do GitHub. O CodeQL automático também foi ativado; sua análise inicial ainda precisa terminar. Nenhum alerta aberto de segredos ou Dependabot foi retornado no momento da consulta; as varreduras recém-habilitadas podem produzir alertas posteriormente.
 - Permissões padrão do `GITHUB_TOKEN`: somente leitura. O workflow passa a reservar `contents: write` apenas para o job de publicação; build e testes não recebem essa permissão. As Actions usadas pelo workflow estão fixadas por SHA de commit. Atualizações de dependências e Actions geram propostas semanais, sem merge automático.
-- A branch padrão deve bloquear force push e exclusão. Esta proteção não substitui revisão de código, assinatura de commits nem segurança da conta GitHub.
+- A branch padrão bloqueia force push e exclusão, exige histórico linear e aplica a regra também ao administrador. Pushes normais continuam permitidos. Esta proteção não substitui revisão de código, assinatura de commits nem segurança da conta GitHub.
 
 ## Limitações e ações pendentes
 

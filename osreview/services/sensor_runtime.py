@@ -13,6 +13,7 @@ import threading
 import time
 from typing import Any
 from .bridge_integrity import find_trusted_bridge
+from .sensor_diagnostics import redact
 from .startup_logging import LOG
 
 
@@ -52,7 +53,7 @@ class SensorRuntime:
             if bridge is None:
                 self._started = False
                 self._error = result.get('reason', 'Motor não encontrado')
-                LOG.warning('SensorBridge indisponivel: %s', self._error)
+                LOG.warning('SensorBridge indisponivel; confira a integridade e a instalacao.')
                 return
             self._started = True
             try:
@@ -63,10 +64,10 @@ class SensorRuntime:
                     creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0),
                 )
             except OSError as exc:
-                self._error = f'Não foi possível iniciar a ponte: {exc}'
+                self._error = f'Não foi possível iniciar a ponte ({type(exc).__name__}).'
                 self._started = False
                 self._retry_paused = True
-                LOG.error('Nao foi possivel executar SensorBridge: %s. Novas tentativas automaticas suspensas.', exc)
+                LOG.error('Nao foi possivel executar SensorBridge (%s). Novas tentativas automaticas suspensas.', type(exc).__name__)
                 return
             threading.Thread(target=self._read_stderr, name='osreview-lhm-errors', daemon=True).start()
             threading.Thread(target=self._read_stream, name='osreview-lhm', daemon=True).start()
@@ -77,7 +78,7 @@ class SensorRuntime:
         try:
             for line in process.stderr:
                 with self._lock:
-                    self._stderr_lines = (self._stderr_lines + [line.strip()[:500]])[-40:]
+                    self._stderr_lines = (self._stderr_lines + [redact(line.strip()[:500])])[-40:]
         except OSError:
             pass
 
@@ -116,7 +117,7 @@ class SensorRuntime:
                         self._extremes[key] = (min(lo, v), max(hi, v))
                 if payload.get('status') == 'falha no motor de sensores': break
         except (OSError, ValueError) as exc:
-            with self._lock: self._error = f'Falha na comunicação: {type(exc).__name__}: {exc}'
+            with self._lock: self._error = f'Falha na comunicação: {type(exc).__name__}.'
         try:
             code = process.wait(timeout=1)
         except subprocess.TimeoutExpired:
@@ -128,7 +129,7 @@ class SensorRuntime:
                 if code != 0:
                     self._error = f'Motor encerrado (código {code}). {detail.strip()}'
                     self._retry_paused = True
-                    LOG.error('%s. Reinicializacao automatica suspensa ate comando do usuario.', self._error)
+                    LOG.error('SensorBridge encerrou com codigo %s; reinicializacao automatica suspensa.', code)
                 elif not self._rows:
                     self._error = 'Motor encerrou sem disponibilizar sensores.'
             if self._process is process:

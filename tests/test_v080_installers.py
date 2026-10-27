@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_version_and_icons():
-    assert __version__ == '0.9.1-rc.1'
+    assert __version__ == '0.9.1-rc.2'
     assert (ROOT/'assets/osreview.ico').is_file()
     assert (ROOT/'assets/osreview.icns').is_file()
 
@@ -43,9 +43,10 @@ def test_ci_architectures():
     workflow=(ROOT/'.github/workflows/build-distribuicao.yml').read_text(encoding='utf8')
     assert 'windows-2022' in workflow
     assert 'macos-15-intel' in workflow
-    assert 'macos-15' in workflow
+    assert 'runs-on: macos-15\n' in workflow
+    assert 'workflow_dispatch' in workflow
     assert re.search(r'actions/upload-artifact@[0-9a-f]{40} # v4', workflow)
-    assert 'needs: windows-x64' in workflow
+    assert 'needs: [windows-x64, macos-intel, macos-apple-silicon]' in workflow
     assert workflow.count('contents: write') == 1
 
 

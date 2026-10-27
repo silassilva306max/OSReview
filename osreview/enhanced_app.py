@@ -161,6 +161,7 @@ class OSReviewAppV5(base.OSReviewApp):
 
     def _rebuild_navigation(self):
         sidebar = self.root_grid.winfo_children()[0]
+        self.nav_sidebar = sidebar
         # Preserve original status label, replace navigation with scrollable list.
         for child in sidebar.winfo_children():
             if child is not self.left_status:
@@ -175,6 +176,7 @@ class OSReviewAppV5(base.OSReviewApp):
         shell = tk.Frame(sidebar, bg=base.SIDEBAR)
         shell.pack(side='top', fill='both', expand=True, padx=(4, 0))
         canvas = tk.Canvas(shell, bg=base.SIDEBAR, bd=0, highlightthickness=0)
+        self.nav_canvas = canvas
         scroll = ttk.Scrollbar(shell, orient='vertical', command=canvas.yview)
         scroll.pack(side='right', fill='y')
         canvas.pack(side='left', fill='both', expand=True)
@@ -183,10 +185,6 @@ class OSReviewAppV5(base.OSReviewApp):
         nav.bind('<Configure>', lambda _: canvas.configure(scrollregion=canvas.bbox('all')))
         canvas.bind('<Configure>', lambda e: canvas.itemconfigure(winid, width=e.width))
         canvas.configure(yscrollcommand=scroll.set)
-        def on_wheel(event):
-            canvas.yview_scroll(int(-event.delta/120) if event.delta else 0, 'units')
-        canvas.bind('<Enter>', lambda _: canvas.bind_all('<MouseWheel>', on_wheel))
-        canvas.bind('<Leave>', lambda _: canvas.unbind_all('<MouseWheel>'))
         items = [
             ('▦','Visão geral','dashboard'), ('◈','Diagnóstico','diagnostics'),
             ('▣','Inventário do hardware','hardware_deep'), ('⊞','Placa-mãe e BIOS','motherboard'),

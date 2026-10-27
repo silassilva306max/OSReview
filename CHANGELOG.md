@@ -1,3 +1,9 @@
+# v0.9.1 RC2 — rolagem por mouse e revisão da publicação pública
+
+- A roda do mouse passa a rolar o painel ou a lista da página ativa quando o ponteiro está sobre títulos, botões e cards. A navegação lateral também rola sem apontar para a barra.
+- O repositório público recebeu varredura de segredos, proteção contra push de credenciais, Dependabot, CodeQL, relato privado de vulnerabilidades e proteção do branch padrão. Os binários 0.9.0 saíram da árvore atual do Git; o histórico antigo foi mantido conforme escolha do proprietário.
+- O workflow da Release fixa Actions por SHA e concede escrita ao GitHub somente no job de publicação. A Release reúne o instalador Windows x64 e os DMGs macOS Intel e Apple Silicon após os três builds concluírem.
+
 # v0.9.1 RC1 — atualizações do OSReview pelo GitHub
 
 - Verificação de Releases oficiais em segundo plano ao abrir no Windows, com opção de desligar e de incluir ou excluir versões de teste.

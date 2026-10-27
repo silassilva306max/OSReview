@@ -3,6 +3,7 @@ import csv
 import io
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from osreview.services.fps_live import FPSLive, valid_process, verify_presentmon, PRESENTMON_SHA256
@@ -47,6 +48,22 @@ def test_sensor_runtime_missing_bridge_explained():
         snap=runtime.snapshot()
     assert not snap['available']
     assert 'Manifesto ausente' in snap['error']
+
+
+def test_sensor_runtime_does_not_log_untrusted_reason_or_store_private_path():
+    runtime = SensorRuntime()
+    reason = 'Falha em C:\\Users\\Example\\segredo@example.com'
+    with patch('osreview.services.sensor_runtime.platform.system', return_value='Windows'), \
+         patch('osreview.services.sensor_runtime.find_trusted_bridge',
+               return_value=(None, {'reason': reason})), \
+         patch('osreview.services.sensor_runtime.LOG.warning') as warning:
+        runtime.start()
+    assert reason == runtime._error
+    assert reason not in str(warning.call_args)
+    runtime._process = SimpleNamespace(stderr=io.StringIO(reason + '\n'))
+    runtime._read_stderr()
+    assert 'Example' not in runtime._stderr_lines[0]
+    assert 'segredo@example.com' not in runtime._stderr_lines[0]
 
 
 def test_sensor_cards_explain_engine_failure():

@@ -45,8 +45,8 @@ if [[ -n "${OSREVIEW_APPLE_DEVELOPER_ID:-}" ]]; then
 fi
 
 cp installer/macos/README_MAC.txt "$stage/LEIA-ME.txt"
-output="release/OSReview-0.9.1-rc.1-macOS-${arch}-NAO-NOTARIZADO.dmg"
-hdiutil create -volname 'OSReview 0.9.1 RC1' -srcfolder "$stage" -ov -format UDZO "$output"
+output="release/OSReview-0.9.1-rc.2-macOS-${arch}-NAO-NOTARIZADO.dmg"
+hdiutil create -volname 'OSReview 0.9.1 RC2' -srcfolder "$stage" -ov -format UDZO "$output"
 shasum -a 256 "$output" > "$output.sha256"
 echo "DMG gerado: $output"
 echo 'O usuário instala por interface gráfica, sem .command, Terminal, Python ou .NET.'
