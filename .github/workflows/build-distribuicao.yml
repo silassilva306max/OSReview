@@ -10,15 +10,13 @@ jobs:
     name: Windows x64 - GUI Inno Setup
     runs-on: windows-2022
     timeout-minutes: 60
-    permissions:
-      contents: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
           architecture: 'x64'
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: '8.0.x'
       - name: Inno Setup build tool (somente CI)
@@ -40,7 +38,7 @@ jobs:
           if ($files.Count -ne 1) { throw "Instalador nao encontrado ou duplicado" }
           Get-FileHash $files[0].FullName -Algorithm SHA256
           if (-not (Test-Path 'release/OSReview-Portable-0.9.1-rc.1-Windows-x64.zip')) { throw 'ZIP portatil ausente' }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: OSReview-0.9.1-rc.1-Windows-x64-NAO-ASSINADO
           path: |
@@ -49,8 +47,20 @@ jobs:
             release/OSReview-Portable-0.9.1-rc.1-Windows-x64.zip
             release/OSReview-Portable-0.9.1-rc.1-Windows-x64.zip.sha256
           if-no-files-found: error
+  publicar-windows:
+    name: Publicar Release Windows
+    needs: windows-x64
+    if: github.ref == 'refs/tags/v0.9.1-rc.1'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: OSReview-0.9.1-rc.1-Windows-x64-NAO-ASSINADO
+          path: release
       - name: Publicar instalador na Release do GitHub
-        if: github.ref == 'refs/tags/v0.9.1-rc.1'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -77,13 +87,13 @@ jobs:
     runs-on: macos-15-intel
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
       - name: Compilar AppKit e DMG
         run: bash build/Gerar_Instalador_macOS.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: OSReview-0.9.1-rc.1-macOS-Intel-NAO-NOTARIZADO
           path: |
@@ -95,15 +105,15 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
       - name: Confirmar arquitetura
         run: test "$(uname -m)" = "arm64"
       - name: Compilar AppKit e DMG
         run: bash build/Gerar_Instalador_macOS.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: OSReview-0.9.1-rc.1-macOS-AppleSilicon-NAO-NOTARIZADO
           path: |

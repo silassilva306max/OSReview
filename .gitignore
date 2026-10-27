@@ -16,3 +16,19 @@ sensor_bridge/SensorBridge.exe.sha256
 fps_engine/PresentMon.exe
 *.spec
 OSReview_suporte_inicializacao.zip
+# Arquivos locais e credenciais que nunca devem entrar no repositório.
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+*.key
+*.kdbx
+*.sqlite
+*.sqlite3
+*.db
+*.log
+*.dmp
+*.dump
+*.evtx

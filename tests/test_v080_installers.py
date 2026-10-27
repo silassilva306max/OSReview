@@ -1,6 +1,7 @@
 """Static integration checks for distribution configuration; not binary acceptance tests."""
 from pathlib import Path
 import plistlib
+import re
 from unittest.mock import patch
 
 from osreview import __version__
@@ -43,7 +44,9 @@ def test_ci_architectures():
     assert 'windows-2022' in workflow
     assert 'macos-15-intel' in workflow
     assert 'macos-15' in workflow
-    assert 'actions/upload-artifact@v4' in workflow
+    assert re.search(r'actions/upload-artifact@[0-9a-f]{40} # v4', workflow)
+    assert 'needs: windows-x64' in workflow
+    assert workflow.count('contents: write') == 1
 
 
 def test_macos_login_agent_created_and_unregistered(tmp_path):
