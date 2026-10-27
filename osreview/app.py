@@ -33,7 +33,7 @@ from osreview.services.windows_update_agent import scan_pending_windows_updates
 from osreview.services.safe_cleanup import preview_cleanup, clean_category
 from osreview.services.online_ai import analyze_event, build_sanitized_event_payload
 from osreview.services.local_controls import (list_services, change_service,
-    close_process_window, terminate_process, reopen_executable)
+    close_process_window, terminate_process, process_still_running, reopen_executable)
 
 BG = '#0F131A'
 SIDEBAR = '#151A22'
@@ -714,6 +714,7 @@ class OSReviewApp(tk.Tk):
         tools.pack(fill='x', pady=(0, 12))
         ui_button(tools, 'Atualizar diagnóstico do Windows', self.request_analysis, True).pack(side='left')
         ui_button(tools, 'Listar serviços', self.request_services).pack(side='left',padx=7)
+        ui_button(tools, 'Aplicativos e processos', lambda:self.switch('processes')).pack(side='left',padx=7)
         self.windows_at = ui_label(tools, 'Aguardando verificação...', 10, MUTED, bg=BG)
         self.windows_at.pack(side='left', padx=13)
         services=tk.Frame(page,bg=BG);services.pack(fill='both',expand=True)
@@ -951,7 +952,7 @@ class OSReviewApp(tk.Tk):
                 if error:
                     self.proc_action_status.configure(text=error,fg=YELLOW)
                 else:
-                    if action=='terminate':self._last_closed_app=info
+                    self._last_closed_app=info
                     self.proc_action_status.configure(text=(
                         f"Solicitação enviada para {info['name']} (PID {info['pid']}). " +
                         ('A janela pode pedir confirmação de salvamento.' if action=='close' else
@@ -1118,6 +1119,8 @@ class OSReviewApp(tk.Tk):
             return
         def worker():
             try:
+                if process_still_running(info):
+                    raise ValueError('O aplicativo ainda está em execução. Aguarde o fechamento antes de reabrir.')
                 pid=reopen_executable(path)
                 self.events.put(('process-reopened',f'Aplicativo iniciado com PID {pid}.',True))
             except Exception as exc:

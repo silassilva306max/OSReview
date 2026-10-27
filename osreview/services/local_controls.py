@@ -122,6 +122,16 @@ def terminate_process(pid: int) -> dict:
     return info
 
 
+def process_still_running(info: dict) -> bool:
+    try:
+        proc = psutil.Process(int(info['pid']))
+        return abs(proc.create_time() - float(info['created'])) <= 0.01
+    except psutil.NoSuchProcess:
+        return False
+    except (psutil.AccessDenied, ValueError, TypeError, KeyError):
+        return True
+
+
 def reopen_executable(path: str) -> int:
     exe=Path(path).resolve(strict=True)
     if exe.suffix.casefold()!='.exe' or _is_windows_path(str(exe)):

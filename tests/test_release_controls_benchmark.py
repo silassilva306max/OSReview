@@ -1,7 +1,9 @@
 """Regression checks for the new controls and measured benchmark path."""
 import threading
+import os
 
 import pytest
+import psutil
 
 from osreview.services.benchmark import BenchmarkCancelled, timed_benchmark
 from osreview.services import local_controls
@@ -51,6 +53,13 @@ def test_protected_service_cannot_reach_service_control(monkeypatch):
     monkeypatch.setattr(local_controls.psutil, 'win_service_get', lambda _name: Service())
     with pytest.raises(PermissionError):
         local_controls.change_service('AvastAgent', 'stop')
+
+
+def test_reopen_guard_detects_existing_process():
+    pid = os.getpid()
+    created = psutil.Process(pid).create_time()
+    assert local_controls.process_still_running({'pid': pid, 'created': created})
+    assert not local_controls.process_still_running({'pid': 0, 'created': created})
 
 
 def test_clock_and_zero_power_are_measured_only():
