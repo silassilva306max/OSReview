@@ -1,5 +1,13 @@
 # Estado da entrega — 27/10/2026
 
+## Versão 0.9.1 RC2 — instaladores Windows e macOS
+
+- Release pública: https://github.com/silassilva306max/OSReview/releases/tag/v0.9.1-rc.2. Contém Setup Windows x64, ZIP portátil, DMG macOS Intel e DMG macOS Apple Silicon, com os quatro respectivos SHA-256.
+- Execução definitiva do GitHub Actions `40544925083`: Windows, Mac Intel, Mac Apple Silicon e publicação concluídos com sucesso. Os quatro arquivos SHA-256 foram confrontados com os digests da API do GitHub.
+- Corrigidos o teste de serviço Windows executado no Mac, a entrada principal isolada do Swift e a falha intermitente `hdiutil: Resource busy` no runner Intel.
+- O teste empacotado `--diagnostico` passou no Windows do GitHub Actions; a suíte local teve 143 testes aprovados e 1 ignorado. A análise local pelo Avast foi confirmada pelo proprietário. A automação visual do Windows ficou indisponível nesta sessão, e a instalação interativa em Mac físico ainda precisa de validação.
+- Os instaladores não têm assinatura Authenticode nem notarização Apple. Sensores/FPS exclusivos do Windows não funcionam no Mac.
+
 ## Versão 0.9.1 RC1 — atualizador Windows
 
 - Repositório `silassilva306max/OSReview` confirmado público pela API do GitHub em 27/10/2026. Commit `42fefd1` e tag `v0.9.1-rc.1` enviados. Release pública: https://github.com/silassilva306max/OSReview/releases/tag/v0.9.1-rc.1.
@@ -41,5 +49,5 @@
 - Assinatura Authenticode: nenhum certificado de editor foi fornecido. O instalador gerado está claramente marcado **NAO-ASSINADO**.
 - Validar sensores em hardware real com e sem privilégios; o helper elevado opcional com IPC autenticado ainda não está implementado.
 - Isolar consultas WMI/COM do processo gráfico: o log local registrou exceção nativa de acesso durante consulta de GPU, apesar da janela ter aberto.
-- Compilar e validar macOS Intel e Apple Silicon em runners nativos. Nenhum DMG foi gerado neste Windows.
+- Validar a instalação interativa dos DMGs Intel e Apple Silicon em Macs físicos.
 - Validar visualmente todos os módulos e concluir as melhorias funcionais extensas do prompt mestre antes de chamar a versão de 1.0.

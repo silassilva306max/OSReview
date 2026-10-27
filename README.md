@@ -31,10 +31,11 @@ O sensor LibreHardwareMonitorLib é biblioteca de terceiros, com licença MPL 2.
 e créditos na interface. A presença de assinatura válida deve ser verificada
 por Authenticode (Windows), Developer ID e notarização (Mac).
 
-**Disponibilidade:** o instalador Windows x64 foi compilado e verificado em
-Windows 11. Ele está em `release/` no workspace local. A compilação macOS
-depende dos runners nativos. Sensores exclusivos do Windows e FPS PresentMon
-não são oferecidos como recursos nativos do Mac.
+**Disponibilidade:** a Release `v0.9.1-rc.2` contém instalador Windows x64,
+ZIP portátil e DMGs macOS para Intel e Apple Silicon, com arquivos SHA-256.
+Os três builds passaram nos runners nativos do GitHub Actions. A instalação
+interativa em Mac físico ainda precisa de validação. Sensores exclusivos do
+Windows e FPS PresentMon não são oferecidos como recursos nativos do Mac.
 
 Consulte `STATUS_DE_ENTREGA.md` para testes e limitações.
 

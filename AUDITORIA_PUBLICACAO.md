@@ -7,6 +7,7 @@
 - O ZIP Windows 0.9.0 rastreado no Git continha um caminho de compilação com o nome do usuário Windows dentro de `SensorBridge.exe`. Ele foi retirado da árvore atual, mas continua recuperável no histórico já publicado. O endereço de e-mail usado como autor dos commits antigos também continua visível nos metadados Git. Os próximos commits locais usam o endereço `noreply` do GitHub.
 - O ZIP público 0.9.1 RC1 foi baixado, teve SHA-256 conferido com a API do GitHub e teve seus 1024 itens inspecionados sem executar código. Não foi encontrado o nome do usuário Windows, chave privada ou token GitHub. Um padrão genérico `sk-` encontrado no binário de terceiros tem 746 caracteres e é idêntico nos dois builds; seu tamanho indica falso positivo da varredura binária, não uma chave identificável.
 - Release `v0.9.1-rc.1`: pública, pré-lançamento, quatro anexos (instalador, ZIP e respectivos SHA-256). O instalador público foi baixado separadamente e passou na verificação de SHA-256. A Release `v0.9.0-rc.1` foi corrigida para pré-lançamento; ela não contém anexos.
+- Release `v0.9.1-rc.2`: pública, pré-lançamento, oito anexos (Windows Setup/portátil e macOS Intel/Apple Silicon, com SHA-256). Os quatro hashes publicados conferem com os digests dos anexos retornados pela API do GitHub. Os quatro jobs da execução de publicação `40544925083` terminaram com sucesso.
 
 ## Configuração de segurança
 
