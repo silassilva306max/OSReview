@@ -37,6 +37,7 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 [Tasks]
 Name: "desktopicon"; Description: "Criar atalho na área de trabalho"; GroupDescription: "Atalhos:"; Flags: unchecked
 Name: "autostart"; Description: "Iniciar OSReview ao entrar no Windows (usuário atual)"; GroupDescription: "Inicialização:"; Flags: unchecked
+Name: "runasadmin"; Description: "Sempre solicitar permissão de administrador ao abrir o OSReview (UAC)"; GroupDescription: "Permissões:"; Flags: unchecked
 
 [Files]
 ; A pasta dist/OSReview é uma distribuição PyInstaller --onedir já compilada.
@@ -51,6 +52,56 @@ Name: "{autodesktop}\OSReview"; Filename: "{app}\{#AppExe}"; WorkingDir: "{app}"
 Filename: "{app}\{#AppExe}"; Description: "Abrir OSReview após instalar"; Flags: nowait postinstall skipifsilent unchecked
 
 [Code]
+const
+  LayersKey = 'Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers';
+  SettingsKey = 'Software\OSReview';
+
+procedure RestoreAdminPreference();
+var
+  ExePath, Previous, Applied, Current: String;
+begin
+  ExePath := ExpandConstant('{app}\{#AppExe}');
+  if RegQueryStringValue(HKCU, SettingsKey, 'AdminFlagApplied', Applied) then
+  begin
+    if not RegQueryStringValue(HKCU, SettingsKey, 'AdminFlagPath', ExePath) then
+      ExePath := ExpandConstant('{app}\{#AppExe}');
+    if RegQueryStringValue(HKCU, LayersKey, ExePath, Current) and (Current = Applied) then
+    begin
+      if RegQueryStringValue(HKCU, SettingsKey, 'AdminFlagPrevious', Previous) and (Previous <> '') then
+        RegWriteStringValue(HKCU, LayersKey, ExePath, Previous)
+      else
+        RegDeleteValue(HKCU, LayersKey, ExePath);
+    end;
+    RegDeleteValue(HKCU, SettingsKey, 'AdminFlagApplied');
+    RegDeleteValue(HKCU, SettingsKey, 'AdminFlagPrevious');
+    RegDeleteValue(HKCU, SettingsKey, 'AdminFlagPath');
+  end;
+end;
+
+procedure ApplyAdminPreference();
+var
+  ExePath, Previous, Applied: String;
+begin
+  RestoreAdminPreference();
+  if not WizardIsTaskSelected('runasadmin') then
+    Exit;
+  ExePath := ExpandConstant('{app}\{#AppExe}');
+  Previous := '';
+  RegQueryStringValue(HKCU, LayersKey, ExePath, Previous);
+  if Pos('RUNASADMIN', Uppercase(Previous)) > 0 then
+    Exit;
+  if Previous = '' then
+    Applied := '~ RUNASADMIN'
+  else
+    Applied := Previous + ' RUNASADMIN';
+  if RegWriteStringValue(HKCU, LayersKey, ExePath, Applied) then
+  begin
+    RegWriteStringValue(HKCU, SettingsKey, 'AdminFlagPrevious', Previous);
+    RegWriteStringValue(HKCU, SettingsKey, 'AdminFlagApplied', Applied);
+    RegWriteStringValue(HKCU, SettingsKey, 'AdminFlagPath', ExePath);
+  end;
+end;
+
 function InitializeSetup(): Boolean;
 begin
   Result := IsWin64;
@@ -64,6 +115,7 @@ var
 begin
   if CurStep = ssPostInstall then
   begin
+    ApplyAdminPreference();
     StartupValue := '"' + ExpandConstant('{app}\{#AppExe}') + '"';
     if WizardIsTaskSelected('autostart') then
       RegWriteStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'OSReview', StartupValue)
@@ -75,5 +127,8 @@ end;
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usUninstall then
+  begin
+    RestoreAdminPreference();
     RegDeleteValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'OSReview');
+  end;
 end;

@@ -176,6 +176,27 @@ def collect_neighbors() -> list[dict] | None:
         return None
 
 
+def _event_row(xml: str, logname: str) -> dict | None:
+    el = ET.fromstring(xml)
+    ns = {'e':'http://schemas.microsoft.com/win/2004/08/events/event'}
+    sys = el.find('e:System', ns)
+    if sys is None:
+        return None
+    e_id = sys.find('e:EventID', ns)
+    level = sys.find('e:Level', ns)
+    provider = sys.find('e:Provider', ns)
+    time_el = sys.find('e:TimeCreated', ns)
+    data = el.find('e:EventData', ns)
+    desc = '; '.join((node.text or '')[:160] for node in data) if data is not None else ''
+    return {
+        'TimeCreated':(time_el.attrib.get('SystemTime','') if time_el is not None else ''),
+        'LogName':logname, 'ProviderName': provider.attrib.get('Name') if provider is not None else None,
+        'Id':int(e_id.text or 0) if e_id is not None else 0,
+        'Level':int(level.text or 2) if level is not None else 2,
+        'Message':desc or 'O log não forneceu mensagem legível; verifique o Visualizador de Eventos para detalhes.'
+    }
+
+
 def collect_events(max_events: int = 120, logs: tuple[str, ...] = ('System', 'Application'),
                    days: int = 7) -> list[dict] | None:
     """Vista Event Log API. Message may be unavailable unless provider formatting is accessible."""
@@ -187,37 +208,37 @@ def collect_events(max_events: int = 120, logs: tuple[str, ...] = ('System', 'Ap
         rows = []
         filter_ms = max(days, 1) * 24 * 3600 * 1000
         query = f'*[System[(Level=1 or Level=2) and TimeCreated[timediff(@SystemTime) <= {filter_ms}]]]'
+        accessible = 0
         for logname in logs:
-            handle = win32evtlog.EvtQuery(logname, win32evtlog.EvtQueryReverseDirection, query)
             try:
-                while len(rows) < max_events:
-                    batch = win32evtlog.EvtNext(handle, min(20, max_events-len(rows)), 0, 0)
+                handle = win32evtlog.EvtQuery(logname, win32evtlog.EvtQueryReverseDirection, query)
+            except Exception:
+                continue
+            try:
+                log_count = 0
+                while log_count < max_events:
+                    batch = win32evtlog.EvtNext(handle, min(20, max_events-log_count), 0, 0)
+                    if log_count == 0:
+                        accessible += 1
                     if not batch:
                         break
                     for event_handle in batch:
-                        xml = win32evtlog.EvtRender(event_handle, win32evtlog.EvtRenderEventXml)
-                        el = ET.fromstring(xml)
-                        ns = {'e':'http://schemas.microsoft.com/win/2004/08/events/event'}
-                        sys = el.find('e:System', ns)
-                        if sys is None:
+                        try:
+                            xml = win32evtlog.EvtRender(event_handle, win32evtlog.EvtRenderEventXml)
+                            row = _event_row(xml, logname)
+                            if row is not None:
+                                rows.append(row)
+                                log_count += 1
+                        except (ValueError, ET.ParseError):
                             continue
-                        e_id = sys.find('e:EventID', ns)
-                        level = sys.find('e:Level', ns)
-                        provider = sys.find('e:Provider', ns)
-                        time_el = sys.find('e:TimeCreated', ns)
-                        data = el.find('e:EventData', ns)
-                        desc = '; '.join((node.text or '')[:160] for node in data) if data is not None else ''
-                        rows.append({
-                            'TimeCreated':(time_el.attrib.get('SystemTime','') if time_el is not None else ''),
-                            'LogName':logname, 'ProviderName': provider.attrib.get('Name') if provider is not None else None,
-                            'Id':int(e_id.text or 0) if e_id is not None else 0,
-                            'Level':int(level.text or 2) if level is not None else 2,
-                            'Message':desc or 'O log não forneceu mensagem legível; verifique o Visualizador de Eventos para detalhes.'
-                        })
+                        finally:
+                            event_handle.Close()
+            except Exception:
+                pass
             finally:
-                win32evtlog.EvtClose(handle)
+                handle.Close()
         rows.sort(key=lambda r: r['TimeCreated'], reverse=True)
-        return rows[:max_events]
+        return rows[:max_events] if accessible else None
     except Exception:
         return None
 

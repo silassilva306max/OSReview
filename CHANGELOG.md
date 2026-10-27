@@ -4,6 +4,10 @@
 - Todas as telas passam a oferecer rolagem vertical do conteúdo completo. Tabelas e controles largos mantêm acesso por rolagem horizontal quando a janela é estreita.
 - Os medidores de temperatura, ações de Rede, controles de FPS, opções de aparência e cards superiores se reorganizam para larguras menores.
 - Janela inicial e tamanho mínimo foram ajustados para resoluções menores, mantendo o modo compacto e os temas claro/escuro.
+- Corrigida a coleta nativa de erros e eventos críticos do Windows, com recuperação independente dos logs Sistema e Aplicativo.
+- Tabela de eventos e cartões detalhados podem ser ampliados em tela cheia; textos se ajustam à largura disponível.
+- Medidores de rede usam escala inicial 0–1000 Mbps e teste de 10 ou 20 segundos por sentido. Interface principal e velocidade negociada aparecem separadas de avisos de Wi-Fi e outros adaptadores.
+- Instalador Windows oferece elevação persistente e opcional via UAC. A interface de atualizações oculta a origem do download, mantendo as verificações de integridade.
 
 # v0.9.1 RC2 — rolagem por mouse e revisão da publicação pública
 

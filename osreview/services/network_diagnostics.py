@@ -12,6 +12,7 @@ import platform
 import re
 import shutil
 import socket
+import statistics
 import subprocess
 import time
 from typing import Any
@@ -140,6 +141,10 @@ def analyze_network(interfaces: list[dict], dns: dict, gateways: dict,
     up = [n for n in interfaces if n.get('up') and adapter_findings(n, dns, gateways)['level'] != 'loopback']
     valid_ipv4 = [n for n in up if any(ip.get('kind') not in ('loopback', 'link-local (APIPA)')
                      for ip in n.get('ipv4', []))]
+    primary = max(valid_ipv4 or up, key=lambda n: (
+        bool(gateways.get(n.get('name'))),
+        any(ip.get('kind') not in ('loopback', 'link-local (APIPA)') for ip in n.get('ipv4', [])),
+        n.get('speed_mbps') or 0), default=None)
     device_issues = []
     local_alerts = []
     for nic in interfaces:
@@ -169,16 +174,14 @@ def analyze_network(interfaces: list[dict], dns: dict, gateways: dict,
         status = 'Atenção: conexão ou configuração requer investigação'
         level = 'attention'
     elif connectivity is not None and connectivity.get('dns') is True and connectivity.get('internet') is True:
-        status = ('Internet acessível no teste pontual; outros adaptadores merecem atenção' if local_alerts
-                  else 'Conectividade externa confirmada no teste pontual')
-        level = 'warning' if local_alerts else 'ok'
-    elif local_alerts:
-        status = 'Conexão principal não comprovada; há alertas em adaptadores'
-        level = 'warning'
+        status = 'Conectividade externa confirmada no teste pontual'
+        level = 'ok'
     else:
-        status = 'Configuração local sem alertas; Internet ainda precisa ser testada'
+        status = 'Interface principal configurada; Internet ainda precisa ser testada'
         level = 'unverified'
     return {'status':status,'level':level,'issues':device_issues,
+            'primary_interface':primary.get('name') if primary else None,
+            'primary_link_mbps':primary.get('speed_mbps') if primary else None,
             'adapter_warnings':local_alerts,
             'caveat':'Triagem local: estado da interface não comprova acesso à Internet. Adaptadores desconectados podem coexistir com outro acesso funcional.'}
 
@@ -448,39 +451,60 @@ def compare_public_dns() -> dict:
             'note':'Latência pontual de DNS, não velocidade de download. Não altera o DNS; em redes com AD, VPN ou DNS corporativo, consulte o administrador antes de modificar a configuração.'}
 
 
-def _speedtest_ookla(progress=None) -> dict:
+def _speedtest_ookla(progress=None, duration_s: int = 10) -> dict:
     """Speedtest.net via speedtest-cli Python library, bundled in the compiled app."""
     import speedtest  # optional library installed through requirements.txt
     if progress: progress('preparing', 0., 0.)
     test = speedtest.Speedtest(secure=True, timeout=8)
     test.get_best_server()
+    test.config['length']['download'] = duration_s
+    test.config['length']['upload'] = duration_s
     if progress: progress('download', 0., 0.)
-    download_mbps = test.download(threads=4) / 1e6
+    def measure(stage, operation):
+        values=[]
+        started=time.monotonic()
+        last_update=[started]
+        while len(values)<4 and (not values or time.monotonic()-started<duration_s):
+            def tick(index,total,start=False,end=False):
+                now=time.monotonic()
+                if progress and end and now-last_update[0]>=.15:
+                    last_update[0]=now
+                    progress(stage, values[-1] if values else 0.,
+                             min(.95,(now-started)/duration_s))
+            values.append(operation(callback=tick)/1e6)
+        return statistics.median(values),len(values)
+    download_mbps,down_samples=measure('download',test.download)
     if progress: progress('download', download_mbps, 1.)
     if progress: progress('upload', 0., 0.)
-    upload_mbps = test.upload(pre_allocate=False, threads=4) / 1e6
+    upload_mbps,up_samples=measure('upload',lambda callback:test.upload(callback=callback,pre_allocate=False))
     if progress: progress('upload', upload_mbps, 1.)
     ping_ms = (test.results.ping if getattr(test, 'results', None) else None)
     if progress: progress('complete', 0., 1.)
     return {'ok':True, 'download_mbps':round(download_mbps,2),
             'upload_mbps':round(upload_mbps,2), 'ping_ms': ping_ms,
             'server':'Speedtest.net (cliente integrado)',
-            'note':'Teste com servidor público. O download/upload consome dados e pode utilizar dezenas ou centenas de MB. Não é certificação da banda contratada.'}
+            'download_samples':down_samples,'upload_samples':up_samples,
+            'note':f'Medição sustentada com meta de {duration_s} s por sentido e mediana das passagens. O tráfego pode chegar a vários GB em link rápido; não certifica a banda contratada.'}
 
 
-def _speedtest_cloudflare(progress=None) -> dict:
-    """Fallback bounded HTTPS speed sample; preserve partial download on failures."""
+def _speedtest_cloudflare(progress=None, duration_s: int = 10) -> dict:
+    """Timed HTTPS samples with an explicit transfer cap and visible progress."""
     from urllib.request import Request, urlopen
     from urllib.parse import urlencode
     from urllib.error import HTTPError, URLError
     base = 'https://speed.cloudflare.com'
     downloaded = down_seconds = uploaded = up_seconds = 0.0
-    sizes = (2_000_000, 8_000_000)
-    upload_sizes = (1_000_000, 3_000_000)
+    down_rates=[]
+    up_rates=[]
+    byte_cap=int(duration_s*125_000_000)
     stage = 'download'
     try:
-        if progress:progress('download',0.,0.)
-        for size in sizes:
+        if progress: progress('download',0.,0.)
+        started=time.monotonic()
+        last_update=started
+        size=500_000
+        while time.monotonic()-started<duration_s and downloaded<byte_cap:
+            size=min(size,byte_cap-int(downloaded))
             url = base + '/__down?' + urlencode({'bytes':size})
             req = Request(url,headers={'Cache-Control':'no-store','User-Agent':'Mozilla/5.0 OSReview/0.6.1'})
             t = time.perf_counter()
@@ -491,32 +515,46 @@ def _speedtest_cloudflare(progress=None) -> dict:
                     part=response.read(min(128*1024,size-got))
                     if not part: break
                     got +=len(part)
-                    if progress and got % (1024*1024) < 128*1024:
+                    now=time.monotonic()
+                    if progress and (now-last_update>=.15 or got>=size):
+                        last_update=now
                         progress('download',got*8/max(time.perf_counter()-t,.001)/1e6,
-                                 min(1.,(downloaded+got)/sum(sizes)))
+                                 min(.99,(now-started)/duration_s))
             if got < size*.9:raise OSError(f'Download incompleto: {got}/{size}')
-            down_seconds += max(.001,time.perf_counter()-t)
+            elapsed=max(.001,time.perf_counter()-t)
+            down_seconds += elapsed
             downloaded += got
-        download = round(downloaded*8/max(down_seconds,.001)/1e6,2)
+            rate=got*8/elapsed/1e6
+            down_rates.append(rate)
+            size=max(500_000,min(50_000_000,int(rate*1e6/8*1.5)))
+        download = round(statistics.median(down_rates[1:] or down_rates),2)
         if progress:progress('download',download,1.)
         stage='upload'
         if progress:progress('upload',0.,0.)
-        for size in upload_sizes:
+        started=time.monotonic()
+        size=500_000
+        while time.monotonic()-started<duration_s and uploaded<byte_cap:
+            size=min(size,byte_cap-int(uploaded))
             req=Request(base+'/__up',method='POST',data=bytes(size),headers={
                 'Content-Type':'application/octet-stream','User-Agent':'Mozilla/5.0 OSReview/0.6.1'})
             t=time.perf_counter()
             with urlopen(req,timeout=23) as response:
                 response.read(256)
                 if not 200<=response.status<300:raise OSError(f'HTTP {response.status} no upload')
-            up_seconds += max(.001,time.perf_counter()-t)
+            elapsed=max(.001,time.perf_counter()-t)
+            up_seconds += elapsed
             uploaded+=size
-            if progress:progress('upload',size*8/max(time.perf_counter()-t,.001)/1e6,uploaded/sum(upload_sizes))
-        upload=round(uploaded*8/max(up_seconds,.001)/1e6,2)
+            rate=size*8/elapsed/1e6
+            up_rates.append(rate)
+            size=max(500_000,min(25_000_000,int(rate*1e6/8*1.5)))
+            if progress:progress('upload',rate,min(.99,(time.monotonic()-started)/duration_s))
+        upload=round(statistics.median(up_rates[1:] or up_rates),2)
         if progress: progress('complete',0.,1.)
         return {'ok':True,'download_mbps':download,'upload_mbps':upload,
-                'server':'Cloudflare Speed Test (amostra HTTP)',
+                'server':'Cloudflare Speed Test (amostras HTTP)',
                 'download_mb':round(downloaded/1e6,1),'upload_mb':round(uploaded/1e6,1),
-                'note':'Amostra HTTP pequena, não equivalente a um benchmark multiconexão. IP do dispositivo enviado ao servidor.'}
+                'download_samples':len(down_rates),'upload_samples':len(up_rates),
+                'note':f'Meta de {duration_s} s por sentido; limite de {byte_cap/1e9:g} GB por sentido. Amostras HTTP de conexão única; IP enviado ao servidor.'}
     except (OSError,TimeoutError,HTTPError,URLError) as exc:
         return {'ok':False,'error':f'{type(exc).__name__}: {str(exc)[:160]}',
                 'failed_stage':stage,'download_mbps':round(downloaded*8/max(down_seconds,.001)/1e6,2) if downloaded else None,
@@ -525,23 +563,25 @@ def _speedtest_cloudflare(progress=None) -> dict:
                 'note':'403 significa que o servidor recusou a transferência; não prova falha na conexão local.'}
 
 
-def run_speedtest(progress=None, provider: str='auto') -> dict:
+def run_speedtest(progress=None, provider: str='auto', duration_s: int = 10) -> dict:
     """Speedtest.net primary, Cloudflare fallback. Never show made-up results.
 
     One click, external traffic, run in background thread. Failure is explicit.
     """
     if provider not in ('auto','ookla','cloudflare'):
         return {'ok':False,'error':'Serviço desconhecido','server':'Não iniciado'}
+    if duration_s not in (10,20):
+        return {'ok':False,'error':'Duração inválida','server':'Não iniciado'}
     errors=[]
     if provider in ('auto','ookla'):
         try:
-            result=_speedtest_ookla(progress)
+            result=_speedtest_ookla(progress,duration_s)
             return {**result,'attempts':['Speedtest.net']}
         except Exception as exc:
             errors.append('Speedtest.net: '+type(exc).__name__+': '+str(exc)[:135])
             if progress:progress('fallback',0.,0.)
     if provider in ('auto','cloudflare'):
-        result=_speedtest_cloudflare(progress)
+        result=_speedtest_cloudflare(progress,duration_s)
         if result['ok']:
             result['attempts'] = errors + ['Cloudflare: concluído']
             return result

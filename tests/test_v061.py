@@ -13,10 +13,12 @@ def test_disconnected_wifi_with_apipa_must_be_in_warnings():
         {'name':'Wi-Fi','up':False,'ipv4':[{'ip':'169.254.70.230','kind':'link-local (APIPA)'}],
          'ipv6':['fe80::1'],'errors_in':0,'errors_out':0},
         {'name':'Ethernet','up':True,'ipv4':[{'ip':'192.168.1.21','kind':'privado'}],
-         'ipv6':[],'errors_in':0,'errors_out':0},
+         'ipv6':[],'speed_mbps':1000,'errors_in':0,'errors_out':0},
     ]
     out=analyze_network(interfaces, {'Ethernet':['192.168.1.1']},{'Ethernet':['192.168.1.1']})
-    assert out['level']=='warning'
+    assert out['level']=='unverified'
+    assert out['primary_interface']=='Ethernet'
+    assert out['primary_link_mbps']==1000
     assert any('APIPA' in x for x in out['adapter_warnings'])
     cards=network_cards({'interfaces':interfaces, 'dns':{'Ethernet':['192.168.1.1']},
                          'gateways':{'Ethernet':['192.168.1.1']}})
@@ -40,17 +42,29 @@ def test_bad_connection_dns_failure_visible():
 
 def test_speedtest_uses_backup_when_first_engine_fails(monkeypatch):
     from osreview.services import network_diagnostics as net
-    monkeypatch.setattr(net,'_speedtest_ookla',lambda progress=None: (_ for _ in ()).throw(RuntimeError('bloqueado')))
-    monkeypatch.setattr(net,'_speedtest_cloudflare',lambda progress=None:{'ok':True,'server':'Cloudflare Speed Test', 'download_mbps':34.,'upload_mbps':10.})
+    monkeypatch.setattr(net,'_speedtest_ookla',lambda progress=None,duration_s=10: (_ for _ in ()).throw(RuntimeError('bloqueado')))
+    monkeypatch.setattr(net,'_speedtest_cloudflare',lambda progress=None,duration_s=10:{'ok':True,'server':'Cloudflare Speed Test', 'download_mbps':34.,'upload_mbps':10.})
     out=run_speedtest()
     assert out['ok'] and out['download_mbps']==34.
     assert len(out['attempts'])==2
 
 
+def test_speedtest_passes_selected_duration_to_engine(monkeypatch):
+    from osreview.services import network_diagnostics as net
+    selected=[]
+    def fake(_progress, duration_s):
+        selected.append(duration_s)
+        return {'ok':True,'download_mbps':800.,'upload_mbps':900.}
+    monkeypatch.setattr(net,'_speedtest_ookla',fake)
+    assert run_speedtest(provider='ookla',duration_s=20)['ok']
+    assert selected==[20]
+    assert not run_speedtest(duration_s=1)['ok']
+
+
 def test_speedtest_preserves_proper_error_no_fabricated_values(monkeypatch):
     from osreview.services import network_diagnostics as net
-    monkeypatch.setattr(net,'_speedtest_ookla',lambda progress=None: (_ for _ in ()).throw(RuntimeError('bloqueado')))
-    monkeypatch.setattr(net,'_speedtest_cloudflare',lambda progress=None: {'ok':False,'server':'Cloudflare Speed Test','error':'HTTP 403', 'download_mbps':None,'upload_mbps':None})
+    monkeypatch.setattr(net,'_speedtest_ookla',lambda progress=None,duration_s=10: (_ for _ in ()).throw(RuntimeError('bloqueado')))
+    monkeypatch.setattr(net,'_speedtest_cloudflare',lambda progress=None,duration_s=10: {'ok':False,'server':'Cloudflare Speed Test','error':'HTTP 403', 'download_mbps':None,'upload_mbps':None})
     out=run_speedtest()
     assert not out['ok'] and 'HTTP 403' in out['error']
     assert out['download_mbps'] is None

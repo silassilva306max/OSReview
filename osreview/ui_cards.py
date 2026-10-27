@@ -15,8 +15,14 @@ def fmt(value, unit: str = '') -> str:
 
 
 class SpecCards(tk.Frame):
-    def __init__(self, parent):
+    def __init__(self, parent, allow_expand=True):
         super().__init__(parent,bg=base.BG)
+        self.expanded = None
+        self.expanded_cards = None
+        if allow_expand:
+            toolbar=tk.Frame(self,bg=base.BG)
+            toolbar.pack(fill='x')
+            base.ui_button(toolbar,'⛶ Ampliar cartões',self.open_expanded).pack(side='right',padx=7,pady=2)
         self.canvas=tk.Canvas(self,bg=base.BG,highlightthickness=0,bd=0)
         self.vbar=ttk.Scrollbar(self,orient='vertical',command=self.canvas.yview)
         self.vbar.pack(side='right',fill='y')
@@ -25,19 +31,29 @@ class SpecCards(tk.Frame):
         self.window=self.canvas.create_window((0,0),window=self.body,anchor='nw')
         self.canvas.configure(yscrollcommand=self.vbar.set)
         self.body.bind('<Configure>',lambda _e:self.canvas.configure(scrollregion=self.canvas.bbox('all')))
-        self.canvas.bind('<Configure>',lambda e:self.canvas.itemconfigure(self.window,width=e.width))
+        self.canvas.bind('<Configure>',self._resize_cards)
         # The application routes wheel events from nested card labels to this canvas.
         self.current=[]
+        self._wrapped_labels=[]
         self._pending_scroll=None
+
+    def _resize_cards(self,event):
+        self.canvas.itemconfigure(self.window,width=event.width)
+        width=max(180,event.width-285)
+        for label in self._wrapped_labels:
+            if label.winfo_exists():label.configure(wraplength=width)
 
     def render(self, cards:list[dict]):
         previous = self.canvas.yview()[0] if self.canvas.winfo_exists() else 0.0
         self.current=cards
+        if self.expanded_cards is not None and self.expanded is not None and self.expanded.winfo_exists():
+            self.expanded_cards.render(cards)
         if self._pending_scroll is not None:
             try:self.after_cancel(self._pending_scroll)
             except tk.TclError:pass
             self._pending_scroll=None
         for w in self.body.winfo_children():w.destroy()
+        self._wrapped_labels=[]
         for card in cards:
             panel=tk.Frame(self.body,bg=base.PANEL,highlightbackground=base.EDGE,highlightthickness=1)
             panel.pack(fill='x',padx=7,pady=6)
@@ -50,8 +66,10 @@ class SpecCards(tk.Frame):
                 row=tk.Frame(panel,bg=base.PANEL);row.pack(fill='x',padx=16,pady=2)
                 tk.Label(row,text=label,bg=base.PANEL,fg=base.MUTED,anchor='w',
                     width=25,font=(base.FONT,10)).pack(side='left')
-                tk.Label(row,text=fmt(value),bg=base.PANEL,fg=base.WHITE,anchor='w',
-                    wraplength=780,justify='left',font=(base.FONT,10,'bold')).pack(side='left',fill='x',expand=True)
+                value_label=tk.Label(row,text=fmt(value),bg=base.PANEL,fg=base.WHITE,anchor='w',
+                    wraplength=max(180,self.canvas.winfo_width()-285),justify='left',font=(base.FONT,10,'bold'))
+                value_label.pack(side='left',fill='x',expand=True)
+                self._wrapped_labels.append(value_label)
             tk.Frame(panel,bg=base.PANEL,height=9).pack()
         # Redraw can change scrollregion asynchronously. Restore after layout,
         # never jump to the beginning during background updates.
@@ -59,6 +77,43 @@ class SpecCards(tk.Frame):
             self._pending_scroll=None
             if self.canvas.winfo_exists():self.canvas.yview_moveto(previous)
         self._pending_scroll=self.after_idle(restore)
+
+    def open_expanded(self):
+        if self.expanded is not None and self.expanded.winfo_exists():
+            self.expanded.lift()
+            self.expanded.focus_force()
+            return
+        popup=tk.Toplevel(self)
+        self.expanded=popup
+        popup.title('OSReview • cartões ampliados')
+        popup.configure(bg=base.BG)
+        popup.geometry('1100x700')
+        popup.attributes('-fullscreen',True)
+        bar=tk.Frame(popup,bg=base.BG)
+        bar.pack(fill='x',padx=16,pady=8)
+        tk.Label(bar,text='INFORMAÇÕES DETALHADAS',bg=base.BG,fg=base.WHITE,
+                 font=(base.FONT,14,'bold')).pack(side='left')
+        base.ui_button(bar,'Fechar • Esc',popup.destroy).pack(side='right')
+        cards=SpecCards(popup,allow_expand=False)
+        cards.pack(fill='both',expand=True,padx=14,pady=(0,14))
+        self.expanded_cards=cards
+        cards.render(self.current)
+        def wheel(event):
+            direction = -1 if (getattr(event,'delta',0)>0 or getattr(event,'num',0)==4) else 1
+            cards.canvas.yview_scroll(direction*3,'units')
+            return 'break'
+        popup.bind('<Escape>',lambda _e:popup.destroy())
+        popup.bind('<MouseWheel>',wheel)
+        popup.bind('<Button-4>',wheel)
+        popup.bind('<Button-5>',wheel)
+        popup.protocol('WM_DELETE_WINDOW',popup.destroy)
+        popup.bind('<Destroy>',lambda e:self._clear_expanded(e,popup),add='+')
+        popup.focus_force()
+
+    def _clear_expanded(self,event,popup):
+        if event.widget is popup:
+            self.expanded=None
+            self.expanded_cards=None
 
 
 def hardware_cards(data:dict) -> list[dict]:
@@ -213,9 +268,12 @@ def network_cards(data: dict, connectivity: dict | None = None,
     cards.append({'title':'SITUAÇÃO DA REDE',
                   'hint':'O estado local, o DNS e a conexão à Internet são avaliados separadamente.',
                   'rows':[('Situação',overview.get('status')),
-                          ('Indícios encontrados',len(warnings)),
+                          ('Interface principal',overview.get('primary_interface') or 'Não identificada'),
+                          ('Velocidade do link',fmt(overview.get('primary_link_mbps'),' Mbps')),
+                          ('Alertas da conexão',len(overview.get('issues') or [])),
+                          ('Avisos de adaptadores',len(overview.get('adapter_warnings') or [])),
                           ('Validação externa','Executada' if connectivity else 'Não executada'),
-                          ('Orientação', 'Verifique alertas dos adaptadores abaixo; não altere DNS antes de corrigir IP/DHCP.'
+                          ('Orientação', 'Confira os adaptadores abaixo; alertas em interfaces secundárias não invalidam a conexão principal.'
                            if warnings else 'Execute os testes de conexão e DNS para validar o acesso externo.') ]})
     if isp:
         if isp.get('ok'):
@@ -304,7 +362,7 @@ class SpeedGauge(tk.Frame):
     def __init__(self,parent,label:str,color:str):
         super().__init__(parent,bg=base.PANEL)
         self.label=label;self.color=color;self.current=None;self.fraction=0.;self.stage='Aguardando teste'
-        self.scale=100.;self.needle=0.;self._animation=None
+        self.scale=1000.;self.needle=0.;self._animation=None
         self.canvas=tk.Canvas(self,width=250,height=205,bg=base.PANEL,bd=0,highlightthickness=0)
         self.canvas.pack(fill='x',expand=True,padx=7,pady=(4,2))
         self.canvas.bind('<Configure>',lambda e:self.draw())
@@ -313,7 +371,7 @@ class SpeedGauge(tk.Frame):
     def update_value(self,mbps:float,progress:float,state:str):
         self.current=max(0.,float(mbps)) if mbps is not None else None;self.fraction=max(0.,min(1.,float(progress)))
         self.stage=state
-        for limit in (100,250,500,1000,2500,5000,10000):
+        for limit in (1000,2500,5000,10000):
             if self.current is not None and self.current>self.scale and self.current<=limit:
                 self.scale=float(limit);break
         if self.current is not None and self.current>self.scale:
@@ -343,11 +401,15 @@ class SpeedGauge(tk.Frame):
             x1=cx+inner*math.cos(angle);y1=cy-inner*math.sin(angle)
             x2=cx+56*math.cos(angle);y2=cy-56*math.sin(angle)
             c.create_line(x1,y1,x2,y2,fill=base.MUTED,width=2 if i%2==0 else 1)
+        for i in range(5):
+            angle=math.radians(210-60*i)
+            c.create_text(cx+76*math.cos(angle),cy-76*math.sin(angle),
+                          text=f'{self.scale*i/4:g}',fill=base.MUTED,font=(base.FONT,8))
         angle=math.radians(210-240*self.needle)
         c.create_line(cx,cy,cx+42*math.cos(angle),cy-42*math.sin(angle),
                       fill=self.color,width=3,capstyle='round')
         c.create_oval(cx-5,cy-5,cx+5,cy+5,fill=self.color,outline='')
-        c.create_text(cx,17,text=self.label,fill=base.MUTED,font=(base.FONT,10,'bold'))
+        c.create_text(cx,116,text=self.label,fill=base.MUTED,font=(base.FONT,10,'bold'))
         c.create_text(cx,144,text=f'{self.current:,.1f} Mbps' if self.current is not None else '— Mbps',
                       fill=base.WHITE,font=(base.FONT,19,'bold'))
         c.create_text(cx,165,text=f'Escala 0–{self.scale:g} Mbps',fill=base.MUTED,font=(base.FONT,9))

@@ -259,7 +259,7 @@ class OSReviewApp(tk.Tk):
         self.main_header = head
         head.pack(fill='x', padx=24, pady=(18, 12))
         ui_label(head, 'Centro de diagnóstico', 22, WHITE, bold=True, bg=BG).pack(side='left')
-        self.notice = ui_label(head, 'MÉTRICAS LOCAIS • VERSÕES VIA GITHUB', 9, GREEN, bold=True, bg=BG)
+        self.notice = ui_label(head, 'MÉTRICAS LOCAIS • ATUALIZAÇÕES OPCIONAIS', 9, GREEN, bold=True, bg=BG)
         self.notice.pack(side='right', padx=(12, 3))
 
         metric_row = tk.Frame(body, bg=BG, height=112)
@@ -579,18 +579,63 @@ class OSReviewApp(tk.Tk):
         tools = tk.Frame(page, bg=BG); tools.pack(fill='x', pady=(0, 9))
         ui_button(tools, 'Recarregar eventos', self.request_events, True).pack(side='left')
         ui_button(tools, 'Interpretar selecionado com IA (opt-in)', self.request_online_ai).pack(side='left', padx=9)
-        self.event_status = ui_label(tools, 'Aguardando eventos...', 9, MUTED, bg=BG)
-        self.event_status.pack(side='left', padx=6)
+        ui_button(tools, '⛶ Ampliar eventos', self.open_events_expanded).pack(side='left', padx=6)
+        self.event_status = ui_label(page, 'Aguardando eventos...', 9, MUTED, bg=BG,
+                                     wraplength=900, justify='left')
+        self.event_status.pack(anchor='w', pady=(0,5))
         cols = ('time','severity','source','id','title')
-        self.event_tree = ttk.Treeview(page, columns=cols, show='headings', height=8, style='OS.Treeview')
+        event_frame=tk.Frame(page,bg=BG)
+        event_frame.pack(fill='both',expand=True)
+        self.event_tree = ttk.Treeview(event_frame, columns=cols, show='headings', height=8, style='OS.Treeview')
         for col, title, width in [('time','Hora',150),('severity','Prioridade',100),('source','Origem',230),('id','ID',55),('title','Interpretação',330)]:
             self.event_tree.heading(col, text=title)
             self.event_tree.column(col, width=width, minwidth=55)
-        self.event_tree.pack(fill='both', expand=True)
+        event_vbar=ttk.Scrollbar(event_frame,orient='vertical',command=self.event_tree.yview)
+        event_hbar=ttk.Scrollbar(event_frame,orient='horizontal',command=self.event_tree.xview)
+        self.event_tree.configure(yscrollcommand=event_vbar.set,xscrollcommand=event_hbar.set)
+        event_vbar.pack(side='right',fill='y')
+        event_hbar.pack(side='bottom',fill='x')
+        self.event_tree.pack(side='left',fill='both', expand=True)
         self.event_tree.bind('<<TreeviewSelect>>', self._show_selected_event)
         self.event_explain = text_area(page, 11)
         self.event_explain.pack(fill='both', expand=True, pady=(10, 0))
         set_text(self.event_explain, 'Selecione um evento para ler o significado em linguagem simples e recomendações.')
+
+    def open_events_expanded(self):
+        popup=tk.Toplevel(self)
+        popup.title('OSReview • Eventos do Windows')
+        popup.configure(bg=BG)
+        popup.geometry('1100x700')
+        popup.attributes('-fullscreen',True)
+        head=tk.Frame(popup,bg=BG);head.pack(fill='x',padx=16,pady=8)
+        ui_label(head,'EVENTOS DO WINDOWS • ERROS E CRÍTICOS',13,WHITE,True,bg=BG).pack(side='left')
+        ui_button(head,'Fechar • Esc',popup.destroy).pack(side='right')
+        frame=tk.Frame(popup,bg=BG);frame.pack(fill='both',expand=True,padx=16)
+        columns=self.event_tree['columns']
+        tree=ttk.Treeview(frame,columns=columns,show='headings',style='OS.Treeview')
+        for col in columns:
+            tree.heading(col,text=self.event_tree.heading(col,'text'))
+            tree.column(col,width=self.event_tree.column(col,'width'),minwidth=55)
+        for iid in self.event_tree.get_children():
+            tree.insert('','end',iid=iid,values=self.event_tree.item(iid,'values'))
+        vbar=ttk.Scrollbar(frame,orient='vertical',command=tree.yview)
+        hbar=ttk.Scrollbar(frame,orient='horizontal',command=tree.xview)
+        tree.configure(yscrollcommand=vbar.set,xscrollcommand=hbar.set)
+        vbar.pack(side='right',fill='y')
+        hbar.pack(side='bottom',fill='x')
+        tree.pack(side='left',fill='both',expand=True)
+        detail=text_area(popup,9)
+        detail.pack(fill='x',padx=16,pady=(8,14))
+        set_text(detail,'Selecione um evento para ler a interpretação.')
+        def selected(_event=None):
+            ids=tree.selection()
+            if ids:
+                self.event_tree.selection_set(ids[0])
+                self._show_selected_event()
+                set_text(detail,self.event_explain.get('1.0','end-1c'))
+        tree.bind('<<TreeviewSelect>>',selected)
+        popup.bind('<Escape>',lambda _e:popup.destroy())
+        popup.focus_force()
 
     def _make_security(self):
         page = self._page('security', 'Segurança do computador',
@@ -610,7 +655,7 @@ class OSReviewApp(tk.Tk):
         page = self._page('updates', 'Atualizações e drivers',
                           'WinGet lista atualizações de programas. Drivers críticos exigem verificação do fabricante.')
         own = self._panel(page, 'VERSÃO DO OSREVIEW',
-                          'Consulta as Releases oficiais do GitHub. Só baixa e abre o instalador com sua escolha.')
+                          'Verifica novas versões. O download e a instalação dependem da sua escolha.')
         own.pack(fill='x', pady=(0, 12))
         self.app_update_status = ui_label(own, f'Versão instalada: {__version__} · Aguardando consulta',
                                           11, MUTED)
@@ -701,13 +746,13 @@ class OSReviewApp(tk.Tk):
             return
         self.app_update_checking = True
         self.app_update_button.configure(state='disabled')
-        self.app_update_status.configure(text='Consultando Releases do OSReview no GitHub...', fg=BLUE)
+        self.app_update_status.configure(text='Verificando novas versões do OSReview...', fg=BLUE)
         def worker():
             try:
                 result = check_for_updates(self.config_store.data.get('update_prereleases', True))
                 self.events.put(('app-update-check', result, manual))
             except Exception as exc:
-                self.events.put(('app-update-error', 'Não foi possível consultar o GitHub: ' + str(exc)))
+                self.events.put(('app-update-error', 'Não foi possível verificar atualizações: ' + str(exc)))
         threading.Thread(target=worker, daemon=True, name='osreview-update-check').start()
 
     def download_or_install_update(self):
@@ -724,7 +769,7 @@ class OSReviewApp(tk.Tk):
         if self.app_update_path is None:
             self.app_update_cancel.clear()
             self.app_update_button.configure(text='Cancelar download', state='normal')
-            self.app_update_status.configure(text=f'Baixando {release.tag} do GitHub...', fg=BLUE)
+            self.app_update_status.configure(text=f'Baixando a versão {release.tag}...', fg=BLUE)
             def worker():
                 try:
                     path = download_installer(release, progress=lambda done, total:
@@ -779,7 +824,7 @@ class OSReviewApp(tk.Tk):
 
     def set_app_update_check(self):
         self.config_store.set('check_app_updates', self.var_app_updates.get())
-        self.settings_status.configure(text='Consulta de versões na abertura salva. Métricas de hardware não são enviadas ao GitHub.')
+        self.settings_status.configure(text='Consulta de versões na abertura salva. Métricas de hardware permanecem no dispositivo.')
 
     def set_update_prereleases(self):
         self.config_store.set('update_prereleases', self.var_update_prereleases.get())
@@ -983,7 +1028,7 @@ class OSReviewApp(tk.Tk):
 
     def _make_settings(self):
         page = self._page('settings', 'Preferências e privacidade',
-                          'Métricas locais. A busca de versões consulta GitHub ao abrir, se ativada; IA online exige consentimento.')
+                          'Métricas locais. A busca de versões usa a internet ao abrir, se ativada; IA online exige consentimento.')
         options = self._panel(page, 'OPÇÕES DO SISTEMA')
         options.pack(fill='x')
         self.var_alert = tk.BooleanVar(value=self.config_store.data['notifications'])
@@ -994,7 +1039,7 @@ class OSReviewApp(tk.Tk):
         options_entries = [
             ('Alertas críticos (notificações do sistema quando disponíveis)', self.var_alert, self.set_alert),
             ('Iniciar junto com o sistema — usuário atual', self.var_start, self.set_startup),
-            ('Avisar ao abrir sobre novas versões do OSReview (consulta GitHub)',
+            ('Avisar ao abrir sobre novas versões do OSReview',
              self.var_app_updates, self.set_app_update_check),
             ('Incluir versões de teste (release candidates)',
              self.var_update_prereleases, self.set_update_prereleases),
@@ -1213,7 +1258,7 @@ class OSReviewApp(tk.Tk):
                 self._check_alerts()
             elif kind == 'windows':
                 self.health = msg[1]
-                self.notice.configure(text='MÉTRICAS LOCAIS • VERSÕES VIA GITHUB', fg=GREEN)
+                self.notice.configure(text='MÉTRICAS LOCAIS • ATUALIZAÇÕES OPCIONAIS', fg=GREEN)
                 self.refresh_windows()
                 if self.latest:
                     self.findings = self.engine.analyze(self.latest, self.procs, self.health, self.inventory, self.event_data, self.pending_windows_updates)

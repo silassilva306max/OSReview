@@ -283,11 +283,16 @@ class OSReviewAppV5(base.OSReviewApp):
         self.speed_provider=tk.StringVar(value='Automático')
         ttk.Combobox(tools,textvariable=self.speed_provider,values=['Automático','Speedtest.net','Cloudflare'],
                      state='readonly',width=16).pack(side='left',padx=7)
-        base.ui_button(tools,'Comparar DNS públicos',self.start_dns_comparison).pack(side='left',padx=(13,6))
+        base.ui_label(tools,'Tempo por sentido:',10,base.MUTED,bg=base.BG).pack(side='left',padx=(7,2))
+        self.speed_duration=tk.StringVar(value='10 s')
+        ttk.Combobox(tools,textvariable=self.speed_duration,values=['10 s','20 s'],
+                     state='readonly',width=6).pack(side='left',padx=(2,7))
+        dns_tools=tk.Frame(nw,bg=base.BG);dns_tools.pack(fill='x',pady=(0,3))
+        base.ui_button(dns_tools,'Comparar DNS públicos',self.start_dns_comparison).pack(side='left',padx=(0,6))
         self.dns_doc_choice=tk.StringVar(value='Cloudflare')
-        ttk.Combobox(tools,textvariable=self.dns_doc_choice,values=['Cloudflare','Google Public DNS','Quad9 (protegido)'],
+        ttk.Combobox(dns_tools,textvariable=self.dns_doc_choice,values=['Cloudflare','Google Public DNS','Quad9 (protegido)'],
                      state='readonly',width=19).pack(side='left',padx=(5,3))
-        base.ui_button(tools,'Site oficial DNS',self.open_dns_documentation).pack(side='left')
+        base.ui_button(dns_tools,'Site oficial DNS',self.open_dns_documentation).pack(side='left')
         self.isp_note=base.ui_label(nw,'Provedor/ASN: Não consultado (consulta externa opcional).',10,base.BLUE,bg=base.BG,wraplength=980,justify='left')
         self.isp_note.pack(anchor='w',pady=(3,3))
         self.speed_note=base.ui_label(nw,'Aguardando teste. O medidor usa dados transferidos, não a velocidade da placa.',
@@ -713,11 +718,16 @@ class OSReviewAppV5(base.OSReviewApp):
             return
         d=self.net_detail
         report=analyze_network(d.get('interfaces',[]),d.get('dns',{}),d.get('gateways',{}),self.connection_detail)
-        issues=(report.get('issues') or [])+(report.get('adapter_warnings') or [])
+        primary=report.get('primary_interface')
+        link=report.get('primary_link_mbps')
+        adapter=(f'{primary} • link {link:g} Mbps' if primary and link else primary or '')
+        issues=report.get('issues') or []
+        secondary=report.get('adapter_warnings') or []
         self.network_status.configure(text='REDE  •  '+report.get('status','Estado desconhecido'),
                                       fg=base.YELLOW if issues else base.GREEN)
-        self.network_hint.configure(text=(' • '.join(issues[:2]) if issues else
-            'Configuração local sem alerta evidente. Execute os testes para confirmar a conexão externa.'))
+        self.network_hint.configure(text=' • '.join(filter(None, [adapter, *issues[:2],
+            f'{len(secondary)} aviso(s) em adaptadores; consulte os cartões' if secondary else '',
+            'Link da placa não é velocidade da Internet' if link else ''])))
 
     def start_dns_comparison(self):
         if not messagebox.askyesno('Comparação de DNS',
@@ -763,8 +773,10 @@ class OSReviewAppV5(base.OSReviewApp):
         if self.speedtest_running:return
         provider_name=self.speed_provider.get()
         provider={'Automático':'auto','Speedtest.net':'ookla','Cloudflare':'cloudflare'}.get(provider_name,'auto')
+        duration=20 if self.speed_duration.get()=='20 s' else 10
         if not messagebox.askyesno('Medição de Internet',
-                'O teste usa servidores públicos e pode transferir dezenas ou centenas de MB, conforme o motor selecionado.\n'
+                f'O teste procura medir cerca de {duration} segundos de download e {duration} de upload. '
+                'Em conexão de 1 Gb/s pode transferir vários GB; a amostra HTTP tem limite de dados.\n'
                 'Seu IP público também será consultado em ipapi.co para identificar ASN/provedor provável. O tráfego pode afetar outros dispositivos da rede.\n\n'
                 'Iniciar agora?'):
             return
@@ -774,7 +786,7 @@ class OSReviewAppV5(base.OSReviewApp):
         self.speed_note.configure(text='Teste iniciado; aguardando servidor. Isto não mede o link físico da placa.')
         def callback(stage,mbps,progress):
             self.v05_events.put(('speed-progress',{'stage':stage,'mbps':mbps,'progress':progress},None))
-        self._start_v05_job('speedtest',run_speedtest,callback,provider)
+        self._start_v05_job('speedtest',run_speedtest,callback,provider,duration)
         self._start_v05_job('isp',fetch_isp)
 
     def confirm_ipscan(self):

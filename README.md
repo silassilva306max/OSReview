@@ -7,6 +7,11 @@ benchmarks locais de CPU/RAM com gráfico e histórico, e controles confirmados 
 processos e serviços de terceiros. A metodologia dos testes está em
 `METODOLOGIA_BENCHMARK.md`.
 
+O diagnóstico de rede mostra a interface principal e a velocidade negociada,
+separadas do teste de Internet. O medidor vai de 0 a 1000 Mbps por padrão e a
+medição oferece 10 ou 20 segundos por sentido. Eventos do Windows e cartões
+detalhados podem ser ampliados em tela cheia.
+
 No Windows, o aplicativo verifica novas Releases públicas do OSReview ao abrir,
 se essa preferência estiver ativada. A tela Atualizações baixa o instalador
 somente por escolha do usuário, confere tamanho e SHA-256 e abre o assistente

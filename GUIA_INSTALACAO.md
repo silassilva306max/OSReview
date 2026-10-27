@@ -6,7 +6,7 @@
 
 1. Duplo clique em **OSReview-Setup-0.9.1-rc.3-Windows-x64-NAO-ASSINADO.exe**.
 2. Escolha a pasta em que o OSReview será instalado (padrão: AppData do usuário).
-3. Marque, se desejar, **Criar atalho na área de trabalho** e/ou **Iniciar com o Windows**.
+3. Marque, se desejar, **Criar atalho na área de trabalho**, **Iniciar com o Windows** e/ou **Sempre solicitar permissão de administrador**. Esta última opção mostra o UAC a cada abertura e pode ser alterada ao reinstalar.
 4. Conclua o assistente. Abra o app por **OSReview.exe**, atalho ou menu Iniciar.
 
 **Não exige Python ou .NET SDK/runtime instalados no computador final.**

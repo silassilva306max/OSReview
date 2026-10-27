@@ -98,5 +98,5 @@ def collect_events(max_events: int = 120) -> dict[str, Any]:
     )
     raw = native_windows_query(script, 25)
     return {'supported': True, 'events': normalize_events(raw),
-            'error': None if raw is not None else 'Nenhum evento ou consulta indisponível (permissões/restrições).',
+            'error': None if raw is not None else 'Consulta indisponível. Verifique o serviço Log de Eventos do Windows e as permissões.',
             'collected_at': datetime.now().isoformat(timespec='seconds')}

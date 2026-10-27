@@ -22,6 +22,9 @@ def test_windows_tasks_install_directory():
     assert 'PrivilegesRequired=lowest' in content
     assert 'Name: "desktopicon"' in content
     assert 'Name: "autostart"' in content
+    assert 'Name: "runasadmin"' in content
+    assert "WizardIsTaskSelected('runasadmin')" in content
+    assert 'AppCompatFlags\\Layers' in content
     assert "WizardIsTaskSelected('autostart')" in content
     assert "RegWriteStringValue(HKCU" in content
     assert '{#AppExe}' in content

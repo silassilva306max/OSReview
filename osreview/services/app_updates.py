@@ -75,7 +75,7 @@ def _trusted_download_host(url: str) -> bool:
 class _SafeRedirects(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         if not _trusted_download_host(newurl):
-            raise UpdateError('Redirecionamento fora do GitHub bloqueado.')
+            raise UpdateError('Redirecionamento fora da origem oficial bloqueado.')
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
@@ -114,8 +114,8 @@ def check_for_updates(include_prerelease: bool = True, opener=urlopen) -> Update
         if exc.code == 404:
             raise UpdateError('Não há Releases públicas disponíveis para este repositório.') from exc
         if exc.code == 403:
-            raise UpdateError('GitHub limitou temporariamente as consultas. Tente mais tarde.') from exc
-        raise UpdateError(f'GitHub retornou HTTP {exc.code}.') from exc
+            raise UpdateError('O serviço de atualizações limitou temporariamente as consultas. Tente mais tarde.') from exc
+        raise UpdateError(f'O serviço de atualizações retornou HTTP {exc.code}.') from exc
     if len(payload) > MAX_METADATA_BYTES:
         raise UpdateError('Catálogo de versões excedeu o limite permitido.')
     try:
@@ -123,7 +123,7 @@ def check_for_updates(include_prerelease: bool = True, opener=urlopen) -> Update
     except (ValueError, UnicodeDecodeError) as exc:
         raise UpdateError('Catálogo de versões inválido.') from exc
     if not isinstance(releases, list):
-        raise UpdateError('Resposta inesperada do GitHub.')
+        raise UpdateError('Resposta inesperada do serviço de atualizações.')
     current = Version(__version__)
     candidates: list[tuple[Version, dict]] = []
     for data in releases:
@@ -188,7 +188,7 @@ def download_installer(release: ReleaseInfo, progress=None, cache_dir: Path | No
     try:
         with client.open(request, timeout=30) as response:
             if not _trusted_download_host(response.geturl()):
-                raise UpdateError('Download saiu dos servidores GitHub.')
+                raise UpdateError('Download saiu da origem oficial esperada.')
             with temporary.open('wb') as output:
                 while True:
                     if stop is not None and stop.is_set():
@@ -206,7 +206,7 @@ def download_installer(release: ReleaseInfo, progress=None, cache_dir: Path | No
                     if progress:
                         progress(total, release.size)
         if total != release.size or digest.hexdigest() != release.sha256:
-            raise UpdateError('Instalador incompleto ou SHA-256 diferente do publicado no GitHub.')
+            raise UpdateError('Instalador incompleto ou SHA-256 diferente do valor oficial publicado.')
         temporary.replace(destination)
         return destination
     except Exception:

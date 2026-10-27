@@ -93,7 +93,7 @@ def test_download_checks_hash_size_and_official_host(tmp_path):
         download_installer(release, cache_dir=tmp_path,
                            opener=Client(b'MZ' + b'd' * 4096, release.asset_url))
     assert not list(tmp_path.glob('*.part'))
-    with pytest.raises(UpdateError, match='GitHub'):
+    with pytest.raises(UpdateError, match='origem oficial'):
         download_installer(release, cache_dir=tmp_path,
                            opener=Client(content, 'https://evil.example/setup.exe'))
 
