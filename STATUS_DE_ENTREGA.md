@@ -1,5 +1,14 @@
 # Estado da entrega — 27/10/2026
 
+## Versão 0.9.1 RC3 — eventos, rede e interface
+
+- Release pública: https://github.com/silassilva306max/OSReview/releases/tag/v0.9.1-rc.3. Contém Setup e ZIP portátil Windows x64, DMGs macOS Intel e Apple Silicon e quatro arquivos SHA-256. O workflow `40552101286` concluiu os três builds e a publicação; os hashes dos arquivos SHA-256 conferem com os digests publicados pelo GitHub.
+- Corrigida a leitura de erros e eventos críticos do Windows: a consulta local retornou oito registros reais no teste. Os cartões e a lista de eventos podem ser ampliados em tela cheia; o layout das 21 telas foi verificado em 980×600, 1024×768, 1280×720 e 1600×900.
+- Medidores de download e upload têm escala inicial de 0 a 1000 Mbps e medição selecionável de 10 ou 20 segundos por sentido. A interface principal é separada dos avisos de adaptadores secundários. Neste PC, o Windows informa Ethernet ativa com link negociado em 100 Mbps; não foi realizado teste de vazão real de 1 Gb/s.
+- O instalador oferece UAC opcional ao abrir o app, desmarcado por padrão. A interface não mostra a origem dos downloads de atualização, preservando a verificação de HTTPS, origem e SHA-256.
+- Suíte local: **148 testes aprovados, 1 ignorado**; build local Windows compilado. O usuário confirmou a análise pelo Avast do Setup local final. O executável empacotado passou em `--diagnostico`, abriu a janela principal e permaneceu ativo durante a checagem curta. A automação de captura visual do Windows não conectou ao desktop nesta sessão.
+- O Setup local tem SHA-256 `20d839e8e634086b3c8ade396159b54ebd721199763a3fd7e29c7ad6faad1a57`. O Setup do GitHub Actions tem hash diferente por ter sido compilado em outro ambiente; seu SHA-256 está publicado e conferido na Release.
+
 ## Versão 0.9.1 RC2 — instaladores Windows e macOS
 
 - Release pública: https://github.com/silassilva306max/OSReview/releases/tag/v0.9.1-rc.2. Contém Setup Windows x64, ZIP portátil, DMG macOS Intel e DMG macOS Apple Silicon, com os quatro respectivos SHA-256.
@@ -42,9 +51,9 @@
 - Instalador Inno Setup final após a revisão de navegação e reabertura: `release/OSReview-Setup-0.9.0-Windows-x64-NAO-ASSINADO.exe` (41.829.676 bytes). SHA-256: `6acb9076982f90748971f17b82661117f0b98d8d2b8562c675c7c277d3d7b191`.
 - Pasta portátil final em `release/OSReview-Portable-0.9.0-Windows-x64.zip` (54.875.686 bytes). SHA-256: `e32ab573a9d5ccd4001099b1010c17d3889e36367f1e0da92735efb0f554b1a0`.
 
-## Pendente
+## Pendente após a RC3
 
-- Confirmar no Avast o fim da análise dos executáveis de 27/10 antes de abrir o novo build e verificar visualmente temas, benchmark, controles, card de RAM e bandeja. O novo executável não foi iniciado.
+- Fazer inspeção visual interativa da RC3 no Windows (temas, benchmark, controles, card de RAM e bandeja); o teste de inicialização não substitui esse percurso.
 - Testar instalação e desinstalação em Windows x64 limpo sem Python e .NET instalados. O build local não prova esse cenário.
 - Assinatura Authenticode: nenhum certificado de editor foi fornecido. O instalador gerado está claramente marcado **NAO-ASSINADO**.
 - Validar sensores em hardware real com e sem privilégios; o helper elevado opcional com IPC autenticado ainda não está implementado.
