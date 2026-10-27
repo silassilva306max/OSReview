@@ -1,3 +1,11 @@
+# v0.9.1 RC1 — atualizações do OSReview pelo GitHub
+
+- Verificação de Releases oficiais em segundo plano ao abrir no Windows, com opção de desligar e de incluir ou excluir versões de teste.
+- Aviso de nova versão na interface, download iniciado pelo usuário, progresso, conferência de tamanho e SHA-256 e nova verificação antes de abrir o instalador.
+- Confirmação explícita de que o Avast terminou a análise; o assistente Inno Setup atualiza a instalação anterior na mesma pasta. Cópias portáteis recebem um aviso de que não serão substituídas automaticamente.
+- Workflow Windows prepara instalador e ZIP portátil e publica os arquivos na Release correspondente quando a tag `v0.9.1-rc.1` é enviada ao GitHub.
+- A versão 0.9.0 precisa ser atualizada manualmente uma vez para receber esse recurso.
+
 # v0.9.0 RC — build Windows x64 e estabilização
 
 - Interface com cinco paletas de cores em modos escuro e claro, barras de rolagem atualizadas, medidores de download/upload redesenhados e botão **Sair do OSReview** na tela principal.

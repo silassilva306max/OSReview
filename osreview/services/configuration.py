@@ -13,7 +13,8 @@ from platformdirs import user_config_dir
 
 DEFAULTS = {"notifications": True, "close_to_tray": True, "start_with_system": False,
             "sample_seconds": 3, "mode": "simples",
-            "theme": "dark", "accent_theme": "graphite", "compact_mode": False, "tray_hover_popup": True}
+            "theme": "dark", "accent_theme": "graphite", "compact_mode": False, "tray_hover_popup": True,
+            "check_app_updates": True, "update_prereleases": True}
 
 
 class ConfigStore:

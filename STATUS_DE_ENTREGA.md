@@ -1,5 +1,16 @@
 # Estado da entrega — 27/10/2026
 
+## Versão 0.9.1 RC1 — atualizador Windows
+
+- Repositório `silassilva306max/OSReview` confirmado público pela API do GitHub em 27/10/2026. A Release 0.9.0 já está publicada; 0.9.1 RC1 ainda precisa ser enviada.
+- Na abertura do app Windows, verificação opcional de versões em segundo plano. A interface avisa sobre uma versão nova e oferece download iniciado pelo usuário, barra de progresso, cancelamento e abertura confirmada do instalador após a análise do Avast.
+- Downloads aceitos apenas da Release oficial do projeto, por HTTPS, com nome esperado, limite de tamanho e SHA-256 informado pela API do GitHub; conferência repetida antes da instalação. Nenhuma credencial é embutida.
+- Instalador Inno preserva o AppId anterior, usa a pasta de instalação existente e fecha aplicativos em uso. Cópias portáteis exibem aviso porque não são sobrescritas pelo instalador.
+- Testes de código: **140 aprovados, 1 ignorado**. O build local compilou ponte .NET, pacote PyInstaller, instalador Inno e ZIP portável. O validador de pacote passou.
+- Instalador: `release/OSReview-Setup-0.9.1-rc.1-Windows-x64-NAO-ASSINADO.exe` (41.863.407 bytes), SHA-256 `17756c7f977d2018382efd45c6be7400070d5cbb15e57f6746e6a09dbcb829e5`.
+- Portátil: `release/OSReview-Portable-0.9.1-rc.1-Windows-x64.zip` (54.717.683 bytes), SHA-256 `58ff5692c82d1c1b8c60e33f54a0ea647614442eb35b81294a7f4e7bf8ed3c2c`.
+- Pendente: publicar a tag/Release 0.9.1 RC1, esperar o Avast analisar os binários e validar visualmente o aplicativo novo e o fluxo completo de atualização em uma instalação existente.
+
 ## Implementado e testado localmente
 
 - Base 0.8.1 importada sem remover os módulos existentes. Git inicializado, tag `baseline-v0.8.1`, branch `release/v0.9.0-rc`.
@@ -23,7 +34,7 @@
 
 ## Pendente
 
-- Criar o novo repositório GitHub e enviar o branch e os binários. O conector GitHub segue indisponível ao modelo; não há credencial Git local, GitHub CLI ou GitHub Desktop, nem superfície de navegador conectada. O repositório local está independente e sem remoto.
+- Publicar esta versão 0.9.1 RC1 no GitHub. O repositório separado OSReview já existe e está público.
 - Confirmar no Avast o fim da análise dos executáveis de 27/10 antes de abrir o novo build e verificar visualmente temas, benchmark, controles, card de RAM e bandeja. O novo executável não foi iniciado.
 - Testar instalação e desinstalação em Windows x64 limpo sem Python e .NET instalados. O build local não prova esse cenário.
 - Assinatura Authenticode: nenhum certificado de editor foi fornecido. O instalador gerado está claramente marcado **NAO-ASSINADO**.

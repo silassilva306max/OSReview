@@ -1,8 +1,8 @@
-name: OSReview 0.9.0 RC - Criar instaladores nativos
+name: OSReview 0.9.1 RC1 - Criar instaladores nativos
 on:
   workflow_dispatch:
   push:
-    tags: ["v0.9.0-rc*"]
+    tags: ["v0.9.1-rc.1"]
 permissions:
   contents: read
 jobs:
@@ -10,6 +10,8 @@ jobs:
     name: Windows x64 - GUI Inno Setup
     runs-on: windows-2022
     timeout-minutes: 60
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,16 +36,42 @@ jobs:
       - name: Inspecionar instalador e SHA256
         shell: pwsh
         run: |
-          $files = @(Get-ChildItem release/OSReview-Setup-0.9.0-Windows-x64-*.exe)
+          $files = @(Get-ChildItem release/OSReview-Setup-0.9.1-rc.1-Windows-x64-*.exe)
           if ($files.Count -ne 1) { throw "Instalador nao encontrado ou duplicado" }
           Get-FileHash $files[0].FullName -Algorithm SHA256
+          if (-not (Test-Path 'release/OSReview-Portable-0.9.1-rc.1-Windows-x64.zip')) { throw 'ZIP portatil ausente' }
       - uses: actions/upload-artifact@v4
         with:
-          name: OSReview-0.9.0-Windows-x64-NAO-ASSINADO
+          name: OSReview-0.9.1-rc.1-Windows-x64-NAO-ASSINADO
           path: |
-            release/OSReview-Setup-0.9.0-Windows-x64-*.exe
-            release/OSReview-Setup-0.9.0-Windows-x64-*.sha256
+            release/OSReview-Setup-0.9.1-rc.1-Windows-x64-*.exe
+            release/OSReview-Setup-0.9.1-rc.1-Windows-x64-*.sha256
+            release/OSReview-Portable-0.9.1-rc.1-Windows-x64.zip
+            release/OSReview-Portable-0.9.1-rc.1-Windows-x64.zip.sha256
           if-no-files-found: error
+      - name: Publicar instalador na Release do GitHub
+        if: github.ref == 'refs/tags/v0.9.1-rc.1'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $files = @(
+            'release/OSReview-Setup-0.9.1-rc.1-Windows-x64-NAO-ASSINADO.exe',
+            'release/OSReview-Setup-0.9.1-rc.1-Windows-x64-NAO-ASSINADO.exe.sha256',
+            'release/OSReview-Portable-0.9.1-rc.1-Windows-x64.zip',
+            'release/OSReview-Portable-0.9.1-rc.1-Windows-x64.zip.sha256'
+          )
+          foreach ($file in $files) { if (-not (Test-Path $file)) { throw "Faltando $file" } }
+          gh release view $tag -R $env:GITHUB_REPOSITORY --json tagName *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $files -R $env:GITHUB_REPOSITORY
+            if ($LASTEXITCODE -ne 0) { throw 'Falha ao anexar arquivos à Release existente' }
+            gh release edit $tag -R $env:GITHUB_REPOSITORY --draft=false --prerelease
+          } else {
+            gh release create $tag $files -R $env:GITHUB_REPOSITORY --verify-tag --prerelease --latest=false --title 'OSReview 0.9.1 RC1' --notes-file RELEASE_NOTES_0.9.1.md
+          }
+          if ($LASTEXITCODE -ne 0) { throw 'Falha ao publicar Release' }
   macos-intel:
     name: macOS Intel - instalador nativo GUI
     runs-on: macos-15-intel
@@ -57,10 +85,10 @@ jobs:
         run: bash build/Gerar_Instalador_macOS.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: OSReview-0.9.0-macOS-Intel-NAO-NOTARIZADO
+          name: OSReview-0.9.1-rc.1-macOS-Intel-NAO-NOTARIZADO
           path: |
-            release/OSReview-0.9.0-macOS-x86_64-*.dmg
-            release/OSReview-0.9.0-macOS-x86_64-*.sha256
+            release/OSReview-0.9.1-rc.1-macOS-x86_64-*.dmg
+            release/OSReview-0.9.1-rc.1-macOS-x86_64-*.sha256
           if-no-files-found: error
   macos-apple-silicon:
     name: macOS Apple Silicon - instalador nativo GUI
@@ -77,8 +105,8 @@ jobs:
         run: bash build/Gerar_Instalador_macOS.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: OSReview-0.9.0-macOS-AppleSilicon-NAO-NOTARIZADO
+          name: OSReview-0.9.1-rc.1-macOS-AppleSilicon-NAO-NOTARIZADO
           path: |
-            release/OSReview-0.9.0-macOS-arm64-*.dmg
-            release/OSReview-0.9.0-macOS-arm64-*.sha256
+            release/OSReview-0.9.1-rc.1-macOS-arm64-*.dmg
+            release/OSReview-0.9.1-rc.1-macOS-arm64-*.sha256
           if-no-files-found: error

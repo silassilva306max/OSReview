@@ -1,11 +1,19 @@
-# OSReview v0.9.0 RC
+# OSReview v0.9.1 RC1
 
 Sistema de diagnóstico de hardware, processos, sensores, rede, eventos, energia e FPS.
 
-Na versão 0.9.0 RC, a interface oferece cinco paletas nos modos claro e escuro,
+Na versão 0.9.1 RC1, a interface oferece cinco paletas nos modos claro e escuro,
 benchmarks locais de CPU/RAM com gráfico e histórico, e controles confirmados de
 processos e serviços de terceiros. A metodologia dos testes está em
 `METODOLOGIA_BENCHMARK.md`.
+
+No Windows, o aplicativo verifica novas Releases públicas do OSReview ao abrir,
+se essa preferência estiver ativada. A tela Atualizações baixa o instalador
+somente por escolha do usuário, confere tamanho e SHA-256 e abre o assistente
+após confirmação de que o Avast terminou sua análise. A instalação anterior é
+atualizada na mesma pasta pelo mesmo AppId do Inno Setup. Cópias portáteis não
+são sobrescritas por esse instalador. Quem usa 0.9.0 precisa instalar 0.9.1 RC1
+uma vez para receber os próximos avisos no aplicativo.
 
 ## Distribuição para usuário final
 

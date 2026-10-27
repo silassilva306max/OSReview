@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_version_and_icons():
-    assert __version__ == '0.9.0'
+    assert __version__ == '0.9.1-rc.1'
     assert (ROOT/'assets/osreview.ico').is_file()
     assert (ROOT/'assets/osreview.icns').is_file()
 

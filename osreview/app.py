@@ -8,6 +8,7 @@ import os
 import webbrowser
 import platform
 import queue
+import subprocess
 import threading
 import time
 import sys
@@ -34,6 +35,8 @@ from osreview.services.safe_cleanup import preview_cleanup, clean_category
 from osreview.services.online_ai import analyze_event, build_sanitized_event_payload
 from osreview.services.local_controls import (list_services, change_service,
     close_process_window, terminate_process, process_still_running, reopen_executable)
+from osreview.services.app_updates import (check_for_updates, download_installer,
+    verify_installer, ReleaseInfo, UpdateCancelled)
 
 BG = '#0F131A'
 SIDEBAR = '#151A22'
@@ -121,6 +124,12 @@ class OSReviewApp(tk.Tk):
         self._last_closed_app: dict | None = None
         self.service_rows: dict[str, dict] = {}
         self.service_loading = False
+        self.app_update_release: ReleaseInfo | None = None
+        self.app_update_path: Path | None = None
+        self.app_update_checking = False
+        self.app_update_downloading = False
+        self.app_update_cancel = threading.Event()
+        self._app_update_notified = False
         self.health: dict[str, Any] | None = None
         self.inventory: dict[str, Any] | None = None
         self.event_data: dict[str, Any] | None = None
@@ -152,6 +161,8 @@ class OSReviewApp(tk.Tk):
             threading.Thread(target=self._inventory_worker, daemon=True, name='osreview-inventory').start()
             threading.Thread(target=self._event_worker, daemon=True, name='osreview-eventlog').start()
         self.after(120, self._process_events)
+        if platform.system() == 'Windows' and not safe_mode and self.config_store.data.get('check_app_updates', True):
+            self.after(4500, self.check_app_update)
 
     def _style_tree(self):
         style = ttk.Style(self)
@@ -207,7 +218,7 @@ class OSReviewApp(tk.Tk):
         head = tk.Frame(body, bg=BG)
         head.pack(fill='x', padx=24, pady=(18, 12))
         ui_label(head, 'Centro de diagnóstico', 22, WHITE, bold=True, bg=BG).pack(side='left')
-        self.notice = ui_label(head, 'ANÁLISE LOCAL • SEM ENVIO DE DADOS', 9, GREEN, bold=True, bg=BG)
+        self.notice = ui_label(head, 'MÉTRICAS LOCAIS • VERSÕES VIA GITHUB', 9, GREEN, bold=True, bg=BG)
         self.notice.pack(side='right', padx=(12, 3))
 
         metric_row = tk.Frame(body, bg=BG, height=112)
@@ -480,6 +491,21 @@ class OSReviewApp(tk.Tk):
     def _make_updates(self):
         page = self._page('updates', 'Atualizações e drivers',
                           'WinGet lista atualizações de programas. Drivers críticos exigem verificação do fabricante.')
+        own = self._panel(page, 'VERSÃO DO OSREVIEW',
+                          'Consulta as Releases oficiais do GitHub. Só baixa e abre o instalador com sua escolha.')
+        own.pack(fill='x', pady=(0, 12))
+        self.app_update_status = ui_label(own, f'Versão instalada: {__version__} · Aguardando consulta',
+                                          11, MUTED)
+        self.app_update_status.pack(anchor='w', padx=16, pady=(5, 8))
+        update_actions = tk.Frame(own, bg=PANEL)
+        update_actions.pack(fill='x', padx=16, pady=(0, 10))
+        ui_button(update_actions, 'Verificar agora', lambda: self.check_app_update(manual=True), True).pack(side='left')
+        self.app_update_button = ui_button(update_actions, 'Nenhuma atualização disponível',
+                                           self.download_or_install_update)
+        self.app_update_button.configure(state='disabled')
+        self.app_update_button.pack(side='left', padx=8)
+        self.app_update_progress = ttk.Progressbar(own, mode='determinate', maximum=100)
+        self.app_update_progress.pack(fill='x', padx=16, pady=(0, 12))
         tool = tk.Frame(page, bg=BG); tool.pack(fill='x', pady=(0, 9))
         ui_button(tool, 'Consultar programas (WinGet)', self.request_upgrades, True).pack(side='left')
         ui_button(tool, 'Abrir Windows Update', lambda: self._open_windows('ms-settings:windowsupdate')).pack(side='left', padx=9)
@@ -550,6 +576,95 @@ class OSReviewApp(tk.Tk):
     def request_upgrades(self):
         set_text(self.updates_text, 'Consultando WinGet... Isso pode utilizar a internet e demorar alguns segundos.')
         threading.Thread(target=lambda: self.events.put(('upgrades', scan_upgrades())), daemon=True).start()
+
+    def check_app_update(self, manual=False):
+        if platform.system() != 'Windows' or self.app_update_checking or self.app_update_downloading:
+            return
+        self.app_update_checking = True
+        self.app_update_button.configure(state='disabled')
+        self.app_update_status.configure(text='Consultando Releases do OSReview no GitHub...', fg=BLUE)
+        def worker():
+            try:
+                result = check_for_updates(self.config_store.data.get('update_prereleases', True))
+                self.events.put(('app-update-check', result, manual))
+            except Exception as exc:
+                self.events.put(('app-update-error', 'Não foi possível consultar o GitHub: ' + str(exc)))
+        threading.Thread(target=worker, daemon=True, name='osreview-update-check').start()
+
+    def download_or_install_update(self):
+        release = self.app_update_release
+        if self.app_update_downloading and self.app_update_path is None:
+            self.app_update_cancel.set()
+            self.app_update_button.configure(state='disabled')
+            self.app_update_status.configure(text='Cancelando download...', fg=YELLOW)
+            return
+        if release is None or self.app_update_downloading:
+            return
+        self.app_update_downloading = True
+        self.app_update_button.configure(state='disabled')
+        if self.app_update_path is None:
+            self.app_update_cancel.clear()
+            self.app_update_button.configure(text='Cancelar download', state='normal')
+            self.app_update_status.configure(text=f'Baixando {release.tag} do GitHub...', fg=BLUE)
+            def worker():
+                try:
+                    path = download_installer(release, progress=lambda done, total:
+                        self.events.put(('app-update-progress', done, total)), stop=self.app_update_cancel)
+                    self.events.put(('app-update-ready', path))
+                except UpdateCancelled:
+                    self.events.put(('app-update-cancelled',))
+                except Exception as exc:
+                    self.events.put(('app-update-error', 'Download não concluído: ' + str(exc)))
+            threading.Thread(target=worker, daemon=True, name='osreview-update-download').start()
+        else:
+            path = self.app_update_path
+            def worker():
+                try:
+                    if not verify_installer(path, release):
+                        raise ValueError('O instalador mudou após o download; baixe novamente.')
+                    self.events.put(('app-update-confirm-install', path))
+                except Exception as exc:
+                    self.events.put(('app-update-error', 'Verificação falhou: ' + str(exc)))
+            threading.Thread(target=worker, daemon=True, name='osreview-update-verify').start()
+
+    @staticmethod
+    def _is_installed_copy() -> bool:
+        if platform.system() != 'Windows' or not getattr(sys, 'frozen', False):
+            return False
+        try:
+            import winreg
+            key_path = r'Software\Microsoft\Windows\CurrentVersion\Uninstall\OSReview.Diagnostics_is1'
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path) as key:
+                folder = winreg.QueryValueEx(key, 'InstallLocation')[0]
+            return Path(folder).resolve() == Path(sys.executable).resolve().parent
+        except (OSError, ValueError):
+            return False
+
+    def _confirm_and_launch_update(self, path: Path):
+        release = self.app_update_release
+        if release is None:
+            return
+        extra = ('' if self._is_installed_copy() else
+                 '\nEsta cópia parece portátil ou iniciada pelo código-fonte. O instalador não substituirá essa pasta; ele criará ou atualizará uma instalação do OSReview.\n')
+        if not messagebox.askyesno('OSReview · instalar atualização',
+                f'Instalador {release.tag} baixado e SHA-256 conferido.\n{extra}\n'
+                'Aguarde o Avast terminar a análise do arquivo. Você confirma que a análise terminou e deseja abrir o instalador agora?'):
+            self.app_update_status.configure(text='Instalador pronto. Aguarde o Avast e clique em Instalar agora.', fg=YELLOW)
+            return
+        try:
+            subprocess.Popen([str(path)], cwd=str(path.parent))
+        except OSError as exc:
+            self.app_update_status.configure(text=f'Não foi possível abrir o instalador: {exc}', fg=YELLOW)
+            return
+        self.exit_app()
+
+    def set_app_update_check(self):
+        self.config_store.set('check_app_updates', self.var_app_updates.get())
+        self.settings_status.configure(text='Consulta de versões na abertura salva. Métricas de hardware não são enviadas ao GitHub.')
+
+    def set_update_prereleases(self):
+        self.config_store.set('update_prereleases', self.var_update_prereleases.get())
+        self.settings_status.configure(text='Preferência de versões de teste salva.')
 
     def request_pending_windows_updates(self):
         if not messagebox.askyesno('Consulta Windows Update',
@@ -749,15 +864,21 @@ class OSReviewApp(tk.Tk):
 
     def _make_settings(self):
         page = self._page('settings', 'Preferências e privacidade',
-                          'Dados locais por padrão. Somente a consulta opcional de IA envia metadados de evento após consentimento.')
+                          'Métricas locais. A busca de versões consulta GitHub ao abrir, se ativada; IA online exige consentimento.')
         options = self._panel(page, 'OPÇÕES DO SISTEMA')
         options.pack(fill='x')
         self.var_alert = tk.BooleanVar(value=self.config_store.data['notifications'])
         self.var_tray = tk.BooleanVar(value=self.config_store.data['close_to_tray'])
         self.var_start = tk.BooleanVar(value=get_system_startup_status())
+        self.var_app_updates = tk.BooleanVar(value=self.config_store.data.get('check_app_updates', True))
+        self.var_update_prereleases = tk.BooleanVar(value=self.config_store.data.get('update_prereleases', True))
         options_entries = [
             ('Alertas críticos (notificações do sistema quando disponíveis)', self.var_alert, self.set_alert),
             ('Iniciar junto com o sistema — usuário atual', self.var_start, self.set_startup),
+            ('Avisar ao abrir sobre novas versões do OSReview (consulta GitHub)',
+             self.var_app_updates, self.set_app_update_check),
+            ('Incluir versões de teste (release candidates)',
+             self.var_update_prereleases, self.set_update_prereleases),
         ]
         if platform.system() == 'Windows':
             options_entries.insert(1, ('Minimizar ou fechar para a bandeja (Windows)', self.var_tray, self.set_close_tray))
@@ -847,7 +968,7 @@ class OSReviewApp(tk.Tk):
                 self._check_alerts()
             elif kind == 'windows':
                 self.health = msg[1]
-                self.notice.configure(text='ANÁLISE LOCAL • SEM ENVIO DE DADOS', fg=GREEN)
+                self.notice.configure(text='MÉTRICAS LOCAIS • VERSÕES VIA GITHUB', fg=GREEN)
                 self.refresh_windows()
                 if self.latest:
                     self.findings = self.engine.analyze(self.latest, self.procs, self.health, self.inventory, self.event_data, self.pending_windows_updates)
@@ -866,6 +987,58 @@ class OSReviewApp(tk.Tk):
                 self._refresh_events()
                 self._recompute_diagnostics()
                 self._refresh_dashboard_modules()
+            elif kind == 'app-update-check':
+                self.app_update_checking = False
+                result, manual = msg[1], msg[2]
+                if result.warning:
+                    self.app_update_release = None
+                    self.app_update_path = None
+                    self.app_update_button.configure(text='Nenhuma atualização verificável', state='disabled')
+                    self.app_update_status.configure(text=result.warning, fg=YELLOW)
+                elif result.release:
+                    self.app_update_release = result.release
+                    self.app_update_path = None
+                    self.app_update_progress['value'] = 0
+                    self.app_update_status.configure(
+                        text=f'Nova versão disponível: {result.release.tag} · {result.release.title}', fg=GREEN)
+                    self.app_update_button.configure(text='Baixar atualização', state='normal')
+                    if not manual and not self._app_update_notified:
+                        self._app_update_notified = True
+                        if messagebox.askyesno('Atualização do OSReview disponível',
+                                f'Encontramos a versão {result.release.tag}. Abrir a tela de atualizações?\n\n'
+                                'O download e a instalação dependem da sua escolha.'):
+                            self.switch('updates')
+                else:
+                    self.app_update_release = None
+                    self.app_update_path = None
+                    self.app_update_button.configure(text='Nenhuma atualização disponível', state='disabled')
+                    self.app_update_status.configure(text=f'OSReview {__version__} está atualizado.', fg=GREEN)
+            elif kind == 'app-update-progress':
+                done, total = msg[1], msg[2]
+                self.app_update_progress['value'] = done * 100 / total
+                self.app_update_status.configure(text=f'Baixando atualização: {done/1048576:.1f} / {total/1048576:.1f} MiB', fg=BLUE)
+            elif kind == 'app-update-ready':
+                self.app_update_downloading = False
+                self.app_update_path = msg[1]
+                self.app_update_progress['value'] = 100
+                self.app_update_status.configure(text='Download completo e SHA-256 conferido. Aguarde a análise do Avast.', fg=GREEN)
+                self.app_update_button.configure(text='Instalar agora', state='normal')
+            elif kind == 'app-update-cancelled':
+                self.app_update_downloading = False
+                self.app_update_progress['value'] = 0
+                self.app_update_status.configure(text='Download cancelado.', fg=MUTED)
+                self.app_update_button.configure(text='Baixar atualização', state='normal')
+            elif kind == 'app-update-confirm-install':
+                self.app_update_downloading = False
+                self.app_update_button.configure(state='normal')
+                self._confirm_and_launch_update(msg[1])
+            elif kind == 'app-update-error':
+                self.app_update_checking = False
+                self.app_update_downloading = False
+                self.app_update_path = None
+                self.app_update_status.configure(text=msg[1][:320], fg=YELLOW)
+                self.app_update_button.configure(text='Baixar atualização',
+                                                 state='normal' if self.app_update_release else 'disabled')
             elif kind == 'upgrades':
                 self.upgrade_data = msg[1]
                 self._refresh_dashboard_modules()
@@ -1341,6 +1514,7 @@ class OSReviewApp(tk.Tk):
         if self.shutdown.is_set():
             return
         self.shutdown.set()
+        self.app_update_cancel.set()
         self.bench_stop.set()
         self.tray.stop()
         self.destroy()

@@ -36,6 +36,8 @@ Portal oficial para envio de falso positivo: https://www.avast.com/pt-br/submit-
 - Coletas via WMI/COM e Event Log são somente leitura.
 - Testes de velocidade e descoberta de rede são iniciados pelo usuário.
 - Atualizações de software e Windows Update não são instaladas automaticamente.
+- No Windows, a verificação opcional de novas versões do OSReview faz uma requisição HTTPS à API pública de Releases do GitHub na abertura. Ela informa ao GitHub o endereço IP da conexão e a versão do OSReview no cabeçalho User-Agent; não envia métricas de hardware, histórico ou logs.
+- O download do instalador exige ação do usuário. O aplicativo confere origem, tamanho e SHA-256 publicado pela Release, mas o instalador continua sem assinatura Authenticode nesta RC. A instalação abre o assistente após confirmação do usuário e da análise do Avast.
 - O acesso remoto de IA continua opcional, mediante ação do usuário e chave de API própria.
 - Informações de energia ausentes permanecem "Indisponível".
 - Build Windows PyInstaller `--onedir` sem extração completa a cada execução.
