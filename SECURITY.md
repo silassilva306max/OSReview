@@ -7,7 +7,7 @@ Não publique chaves, logs, pacotes de suporte ou dados do seu dispositivo em um
 
 ## Distribuição
 
-A versão Windows 0.9.1 RC3 está em
+A versão Windows 0.9.1 RC4 está em
 [GitHub Releases](https://github.com/silassilva306max/OSReview/releases).
 O instalador é um pré-lançamento **sem assinatura Authenticode**. Confira o
 SHA-256 publicado com cada arquivo e aguarde a análise do antivírus antes de

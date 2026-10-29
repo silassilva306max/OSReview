@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
 cd /d "%~dp0\.."
-title OSReview 0.9.1 RC3 - Windows x64
+title OSReview 0.9.1 RC4 - Windows x64
 if not exist "run.py" (echo ERRO: extraia os arquivos. & exit /b 1)
 if not exist ".venv\Scripts\python.exe" (
   where py >nul 2>&1
@@ -43,7 +43,7 @@ if not exist "%ISCC%" (echo ERRO: instale Inno Setup 6, https://jrsoftware.org/i
 echo [6/6] Criando instalador Inno Setup, destino configuravel...
 "%ISCC%" "installer\windows\OSReview.iss"
 if errorlevel 1 exit /b 1
-"%PY%" -c "import hashlib,pathlib;p=next(pathlib.Path('release').glob('OSReview-Setup-0.9.1-rc.3-Windows-x64-*.exe'));h=hashlib.sha256(p.read_bytes()).hexdigest();p.with_suffix('.exe.sha256').write_text(h+'  '+p.name+'\n');print('SAIDA:',p,'SHA256:',h)"
+"%PY%" -c "import hashlib,pathlib;p=next(pathlib.Path('release').glob('OSReview-Setup-0.9.1-rc.4-Windows-x64-*.exe'));h=hashlib.sha256(p.read_bytes()).hexdigest();p.with_suffix('.exe.sha256').write_text(h+'  '+p.name+'\n');print('SAIDA:',p,'SHA256:',h)"
 if errorlevel 1 exit /b 1
 "%PY%" build\gerar_portatil.py
 if errorlevel 1 exit /b 1

@@ -87,3 +87,23 @@ def test_five_theme_palettes_preserve_readable_surfaces():
         colors = [palette(mode, key) for key in THEMES]
         assert len({color['ACCENT'] for color in colors}) == 5
         assert all(color['PANEL'] != color['WHITE'] for color in colors)
+        assert len({color['BG'] for color in colors}) == 5
+        assert len({color['SIDEBAR'] for color in colors}) == 5
+        assert len({color['PANEL2'] for color in colors}) == 5
+        for color in colors:
+            assert len(set(color.values())) == len(color)
+            assert _contrast(color['WHITE'], color['PANEL2']) >= 4.5
+            assert _contrast(color['MUTED'], color['PANEL']) >= 4.5
+            assert _contrast(color['ACCENT_FG'], color['ACCENT']) >= 4.5
+
+
+def _contrast(first: str, second: str) -> float:
+    def luminance(value: str) -> float:
+        components = [int(value[index:index + 2], 16) / 255 for index in (1, 3, 5)]
+        linear = [component / 12.92 if component <= 0.04045
+                  else ((component + 0.055) / 1.055) ** 2.4 for component in components]
+        return sum(component * weight for component, weight in
+                   zip(linear, (0.2126, 0.7152, 0.0722)))
+
+    brighter, darker = sorted((luminance(first), luminance(second)), reverse=True)
+    return (brighter + 0.05) / (darker + 0.05)

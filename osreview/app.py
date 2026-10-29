@@ -29,6 +29,7 @@ from osreview.services.tray import TrayController
 from osreview.services.windows_health import collect_windows_health
 from osreview.services.windows_inventory import collect_inventory
 from osreview.services.event_intelligence import collect_events
+from osreview.services.event_web_search import BROWSERS, SEARCH_ENGINES, open_event_search
 from osreview.services.software_updates import scan_upgrades
 from osreview.services.windows_update_agent import scan_pending_windows_updates
 from osreview.services.safe_cleanup import preview_cleanup, clean_category
@@ -65,7 +66,8 @@ def ui_button(parent, text, action, accent=False, width=None):
     options = {'width': width} if width else {}
     return tk.Button(parent, text=text, command=action, font=(FONT, 10, 'bold'),
                      bg=ACCENT if accent else PANEL2, fg=ACCENT_FG if accent else WHITE,
-                     activebackground=ACTIVE_ACCENT if accent else EDGE, activeforeground=WHITE,
+                     activebackground=ACTIVE_ACCENT if accent else EDGE,
+                     activeforeground=ACCENT_FG if accent else WHITE,
                      relief='flat', bd=0, highlightthickness=0, padx=14, pady=9, cursor='hand2', **options)
 
 
@@ -580,6 +582,18 @@ class OSReviewApp(tk.Tk):
         ui_button(tools, 'Recarregar eventos', self.request_events, True).pack(side='left')
         ui_button(tools, 'Interpretar selecionado com IA (opt-in)', self.request_online_ai).pack(side='left', padx=9)
         ui_button(tools, '⛶ Ampliar eventos', self.open_events_expanded).pack(side='left', padx=6)
+        search=tk.Frame(page,bg=BG);search.pack(fill='x',pady=(0,5))
+        ui_label(search,'Busca:',9,MUTED,bg=BG).pack(side='left')
+        self.event_search_engine=tk.StringVar(value='Google')
+        ttk.Combobox(search,textvariable=self.event_search_engine,values=list(SEARCH_ENGINES),
+                     state='readonly',width=14).pack(side='left',padx=(5,9))
+        ui_label(search,'Abrir em:',9,MUTED,bg=BG).pack(side='left')
+        self.event_search_browser=tk.StringVar(value='Navegador padrão')
+        ttk.Combobox(search,textvariable=self.event_search_browser,values=list(BROWSERS),
+                     state='readonly',width=18).pack(side='left',padx=(5,9))
+        ui_button(search,'Pesquisar erro selecionado',self.search_selected_event).pack(side='left')
+        ui_label(page,'A pesquisa envia apenas ID, origem e interpretação resumida. A mensagem original do log permanece local.',
+                 9,MUTED,bg=BG,wraplength=900,justify='left').pack(anchor='w',pady=(0,5))
         self.event_status = ui_label(page, 'Aguardando eventos...', 9, MUTED, bg=BG,
                                      wraplength=900, justify='left')
         self.event_status.pack(anchor='w', pady=(0,5))
@@ -610,6 +624,13 @@ class OSReviewApp(tk.Tk):
         head=tk.Frame(popup,bg=BG);head.pack(fill='x',padx=16,pady=8)
         ui_label(head,'EVENTOS DO WINDOWS • ERROS E CRÍTICOS',13,WHITE,True,bg=BG).pack(side='left')
         ui_button(head,'Fechar • Esc',popup.destroy).pack(side='right')
+        search=tk.Frame(popup,bg=BG);search.pack(fill='x',padx=16,pady=(0,8))
+        ui_label(search,'Buscar em:',10,MUTED,bg=BG).pack(side='left')
+        ttk.Combobox(search,textvariable=self.event_search_engine,values=list(SEARCH_ENGINES),
+                     state='readonly',width=14).pack(side='left',padx=(5,10))
+        ttk.Combobox(search,textvariable=self.event_search_browser,values=list(BROWSERS),
+                     state='readonly',width=18).pack(side='left',padx=(0,10))
+        ui_button(search,'Pesquisar evento selecionado',self.search_selected_event).pack(side='left')
         frame=tk.Frame(popup,bg=BG);frame.pack(fill='both',expand=True,padx=16)
         columns=self.event_tree['columns']
         tree=ttk.Treeview(frame,columns=columns,show='headings',style='OS.Treeview')
@@ -962,6 +983,19 @@ class OSReviewApp(tk.Tk):
                  f"O que significa: {e['meaning']}\n\nO que fazer: {e['action']}\n\n"
                  f"Mensagem original (apenas local):\n{e['message']}\n\n"
                  'Importante: um único evento não é diagnóstico definitivo. Consulte ocorrências e contexto.')
+
+    def search_selected_event(self):
+        if not self.event_tree.selection():
+            messagebox.showinfo('Pesquisar evento', 'Selecione um erro ou evento crítico na lista primeiro.')
+            return
+        self._show_selected_event()
+        try:
+            terms=open_event_search(self.selected_event, self.event_search_engine.get(),
+                                    self.event_search_browser.get())
+        except (OSError, ValueError) as exc:
+            messagebox.showwarning('Pesquisar evento', str(exc))
+            return
+        self.event_status.configure(text=f'Pesquisa aberta: {terms}', fg=BLUE)
 
     def request_online_ai(self):
         e = self.selected_event

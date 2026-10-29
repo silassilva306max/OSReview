@@ -1,3 +1,12 @@
+# v0.9.1 RC4 — pesquisa de eventos no navegador
+
+- Um erro ou evento crítico selecionado pode ser pesquisado diretamente na web, sem token de IA, pela tela normal ou ampliada de Eventos.
+- A busca oferece Google, Bing, DuckDuckGo e Brave Search, com navegador padrão, Edge, Chrome, Opera, Firefox ou Brave quando instalado.
+- Apenas ID, origem e interpretação resumida entram na URL da pesquisa; a mensagem original do log fica no dispositivo.
+- Os cinco temas escuros agora usam cores próprias em todas as superfícies, navegação, gráficos e estados; as versões claras mantêm fundos e bordas levemente tingidos e texto legível.
+- Menus suspensos de tempo de benchmark e de velocidade, incluindo a lista de opções, mostram texto com contraste adequado em todos os temas.
+- Removida a cópia redundante do prompt de desenvolvimento; a metodologia de benchmark foi preservada como documentação técnica.
+
 # v0.9.1 RC3 — gráficos e janelas adaptáveis
 
 - Gráficos de CPU/RAM e benchmark são redesenhados ao mudar o tamanho da janela. A visão geral e o benchmark rolam verticalmente quando necessário.

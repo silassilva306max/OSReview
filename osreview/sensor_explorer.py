@@ -6,6 +6,7 @@ never redraws tables or resets the selection/scroll position.
 from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk, messagebox
+from osreview import app as base
 from osreview.services.sensor_triage import triage
 from osreview.services.sensor_analysis import is_real_temperature
 
@@ -18,34 +19,26 @@ class SensorExplorer(tk.Toplevel):
         self.geometry('1130x720')
         self.minsize(780, 460)
         self.snapshot = {}
-        self.configure(bg='#11151D')
-        style=ttk.Style(self)
-        style.configure('OSReviewSensors.Treeview',background='#1A2636',foreground='#E9F2FF',
-                        fieldbackground='#1A2636',rowheight=26,font=('Segoe UI',10),borderwidth=0)
-        style.configure('OSReviewSensors.Treeview.Heading',background='#27394E',foreground='#E9F2FF',
-                        font=('Segoe UI',10,'bold'),relief='flat')
-        style.map('OSReviewSensors.Treeview', background=[('selected','#365C82')],
-                  foreground=[('selected','#FFFFFF')])
-        style.configure('OSReviewSensors.TNotebook',background='#11151D')
-        style.configure('OSReviewSensors.TNotebook.Tab',background='#243346',foreground='#DDEBFF',padding=(12,7))
-        style.map('OSReviewSensors.TNotebook.Tab',background=[('selected','#345577')],foreground=[('selected','#FFFFFF')])
+        self.configure(bg=base.BG)
+        self.apply_theme({key:getattr(base,key) for key in
+                          ('BG','PANEL','PANEL2','WHITE','MUTED','ACCENT','ACCENT_FG')})
         self.protocol('WM_DELETE_WINDOW', self.destroy)
-        header = tk.Frame(self, bg='#11151D');header.pack(fill='x',padx=16,pady=(15,8))
+        header = tk.Frame(self, bg=base.BG);header.pack(fill='x',padx=16,pady=(15,8))
         tk.Label(header,text='Explorador de sensores — instantâneo congelado',font=('Segoe UI',17,'bold'),
-                 bg='#11151D',fg='#FFFFFF').pack(anchor='w')
+                 bg=base.BG,fg=base.WHITE).pack(anchor='w')
         tk.Label(header,text='A rolagem e a seleção não mudam enquanto o monitor atualiza ao fundo.',
-                 font=('Segoe UI',10),bg='#11151D',fg='#B8C5D9').pack(anchor='w')
-        controls = tk.Frame(self, bg='#11151D');controls.pack(fill='x',padx=16,pady=(4,10))
-        tk.Button(controls,text='Capturar leitura mais recente',command=self.capture,bg='#F16B67',fg='#080C11',
+                 font=('Segoe UI',10),bg=base.BG,fg=base.MUTED).pack(anchor='w')
+        controls = tk.Frame(self, bg=base.BG);controls.pack(fill='x',padx=16,pady=(4,10))
+        tk.Button(controls,text='Capturar leitura mais recente',command=self.capture,bg=base.ACCENT,fg=base.ACCENT_FG,
                   relief='flat',padx=12,pady=8,cursor='hand2').pack(side='left')
-        tk.Button(controls,text='Copiar linha selecionada',command=self.copy_selected,bg='#263546',fg='white',
+        tk.Button(controls,text='Copiar linha selecionada',command=self.copy_selected,bg=base.PANEL2,fg=base.WHITE,
                   relief='flat',padx=10,pady=8).pack(side='left',padx=10)
         self.filter_var=tk.StringVar(value='Todos')
         ttk.Combobox(controls,textvariable=self.filter_var,state='readonly',width=19,
                      values=['Todos','CPU','GPU','SSD / HD','Placa-mãe / chipset','Memória RAM','Fonte / PSU','Outros']).pack(side='right')
         self.filter_var.trace_add('write',lambda *_:self.fill_valid())
         self.note=tk.Label(self,text='',anchor='w',justify='left',wraplength=1060,
-                            bg='#1A2533',fg='#E6EFFA',font=('Segoe UI',10),padx=13,pady=9)
+                            bg=base.PANEL,fg=base.WHITE,font=('Segoe UI',10),padx=13,pady=9)
         self.note.pack(fill='x',padx=16,pady=(0,10))
         self.tabs=ttk.Notebook(self,style='OSReviewSensors.TNotebook');self.tabs.pack(fill='both',expand=True,padx=16,pady=(0,16))
         self.tables={}
@@ -65,6 +58,22 @@ class SensorExplorer(tk.Toplevel):
             tree.grid(row=0,column=0,sticky='nsew');v.grid(row=0,column=1,sticky='ns');h.grid(row=1,column=0,sticky='ew')
             self.tables[tab]=tree
         self.capture()
+
+    def apply_theme(self, colors):
+        style=ttk.Style(self)
+        style.configure('OSReviewSensors.Treeview',background=colors['PANEL'],
+                        foreground=colors['WHITE'],fieldbackground=colors['PANEL'],
+                        rowheight=26,font=('Segoe UI',10),borderwidth=0)
+        style.configure('OSReviewSensors.Treeview.Heading',background=colors['PANEL2'],
+                        foreground=colors['WHITE'],font=('Segoe UI',10,'bold'),relief='flat')
+        style.map('OSReviewSensors.Treeview',background=[('selected',colors['ACCENT'])],
+                  foreground=[('selected',colors['ACCENT_FG'])])
+        style.configure('OSReviewSensors.TNotebook',background=colors['BG'])
+        style.configure('OSReviewSensors.TNotebook.Tab',background=colors['PANEL2'],
+                        foreground=colors['WHITE'],padding=(12,7))
+        style.map('OSReviewSensors.TNotebook.Tab',
+                  background=[('selected',colors['ACCENT'])],
+                  foreground=[('selected',colors['ACCENT_FG'])])
 
     def capture(self):
         self.snapshot=self.data_provider() or {}

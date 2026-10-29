@@ -856,11 +856,11 @@ class OSReviewAppV5(base.OSReviewApp):
         win=tk.Toplevel(self)
         win.title('OSReview FPS')
         win.geometry('230x72+55+55')
-        win.configure(bg='#0D1725')
+        win.configure(bg=base.PANEL)
         win.attributes('-topmost',True)
         win.overrideredirect(True)
         label=tk.Label(win,text='FPS: aguardando | Frametime: —',font=('Segoe UI',12,'bold'),
-            bg='#0D1725',fg='#4EE6C4',padx=14,pady=18)
+            bg=base.PANEL,fg=base.GREEN,padx=14,pady=18)
         label.pack(fill='both',expand=True)
         # Overlay can be moved using standard mouse dragging; never inject into games.
         def drag_start(ev):win._drag_x=ev.x_root-win.winfo_x();win._drag_y=ev.y_root-win.winfo_y()
@@ -1199,13 +1199,33 @@ class OSReviewAppV5(base.OSReviewApp):
             self._style_tree()
             style=ttk.Style(self)
             style.map('OS.Treeview',
-                      background=[('selected',new['PANEL2'])],
-                      foreground=[('selected',new['WHITE'])])
-            style.configure('Vertical.TScrollbar',background=new['PANEL2'],troughcolor=new['BG'],
-                            arrowcolor=new['MUTED'],bordercolor=new['EDGE'],relief='flat')
-            style.map('Vertical.TScrollbar',background=[('active',new['ACCENT'])])
+                      background=[('selected',new['ACCENT'])],
+                      foreground=[('selected',new['ACCENT_FG'])])
+            style.configure('OS.Treeview.Heading',background=new['PANEL2'],foreground=new['WHITE'])
+            for orientation in ('Vertical', 'Horizontal'):
+                scrollbar=f'{orientation}.TScrollbar'
+                style.configure(scrollbar,background=new['PANEL2'],troughcolor=new['BG'],
+                                arrowcolor=new['MUTED'],bordercolor=new['EDGE'],relief='flat')
+                style.map(scrollbar,background=[('active',new['ACCENT'])])
             style.configure('TCombobox',fieldbackground=new['PANEL2'],background=new['PANEL2'],
-                            foreground=new['WHITE'],arrowcolor=new['MUTED'])
+                            foreground=new['WHITE'],arrowcolor=new['WHITE'],
+                            selectbackground=new['PANEL2'],selectforeground=new['WHITE'],
+                            bordercolor=new['EDGE'],lightcolor=new['EDGE'],darkcolor=new['EDGE'])
+            style.map('TCombobox',
+                      fieldbackground=[('readonly',new['PANEL2'])],
+                      foreground=[('disabled',new['MUTED']),('readonly',new['WHITE'])],
+                      selectforeground=[('readonly',new['WHITE'])],
+                      selectbackground=[('readonly',new['PANEL2'])],
+                      background=[('readonly',new['PANEL2'])],
+                      arrowcolor=[('readonly',new['WHITE'])])
+            style.configure('Horizontal.TProgressbar',background=new['ACCENT'],
+                            troughcolor=new['PANEL2'],bordercolor=new['EDGE'],
+                            lightcolor=new['ACCENT'],darkcolor=new['ACCENT'])
+            style.configure('TFrame',background=new['PANEL'])
+            for option,color in (('background',new['PANEL2']),('foreground',new['WHITE']),
+                                 ('selectBackground',new['ACCENT']),('selectForeground',new['ACCENT_FG'])):
+                self.option_add(f'*TCombobox*Listbox.{option}',color)
+            self._recolor_combobox_lists(self,new)
         except tk.TclError:pass
         if getattr(self,'theme_var',None):self.theme_var.set(mode)
         if getattr(self,'accent_var',None):self.accent_var.set(accent)
@@ -1220,15 +1240,39 @@ class OSReviewAppV5(base.OSReviewApp):
             if g:
                 g.color=new['GREEN'] if gauge=='gauge_download' else new['BLUE']
                 g.draw()
+        for meter in getattr(self,'sensor_meters',{}).values():
+            meter._draw()
+        explorer=getattr(self,'sensor_explorer_window',None)
+        if explorer is not None and explorer.winfo_exists():
+            explorer.apply_theme(new)
+        self.diag_text.tag_configure('critical',foreground=new['RED'])
+        self.diag_text.tag_configure('warning',foreground=new['YELLOW'])
+        self.diag_text.tag_configure('ok',foreground=new['GREEN'])
+        self.diag_text.tag_configure('info',foreground=new['BLUE'])
+        self._draw_graph()
+        self._draw_bench_chart()
         if self.latest:
-            self._draw_graph()
             self._update_telemetry()
+
+    def _recolor_combobox_lists(self, widget, colors):
+        if isinstance(widget,ttk.Combobox):
+            try:
+                popup=widget.tk.call('ttk::combobox::PopdownWindow',str(widget))
+                widget.tk.call(f'{popup}.f.l','configure',
+                               '-background',colors['PANEL2'],'-foreground',colors['WHITE'],
+                               '-selectbackground',colors['ACCENT'],
+                               '-selectforeground',colors['ACCENT_FG'])
+            except tk.TclError:
+                pass
+        for child in widget.winfo_children():
+            self._recolor_combobox_lists(child,colors)
 
     def _recolor_widget(self, widget, mapping):
         if widget.winfo_class() not in ('TCombobox','Treeview','Treeview.Heading'):
             for key in ('background','foreground','activebackground','activeforeground',
-                        'selectcolor','highlightbackground','insertbackground','selectbackground',
-                        'troughcolor'):
+                        'selectcolor','selectforeground','disabledforeground',
+                        'highlightbackground','highlightcolor','insertbackground',
+                        'selectbackground','troughcolor'):
                 try:
                     color=widget.cget(key)
                     if isinstance(color,str) and color.lower() in mapping:
