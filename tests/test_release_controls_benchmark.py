@@ -9,7 +9,7 @@ from osreview.services.benchmark import BenchmarkCancelled, timed_benchmark
 from osreview.services import local_controls
 from osreview.services.local_controls import service_manageable, _is_windows_path
 from osreview.services.sensor_analysis import clock_readings, power_readings
-from osreview.ui_theme import THEMES, palette
+from osreview.ui_theme import THEMES, normalize_theme, palette
 
 
 def test_service_guard_excludes_windows_and_security_services():
@@ -81,20 +81,27 @@ def test_clock_and_zero_power_are_measured_only():
     assert power_readings({'groups': {'GPU': []}})['gpu'] is None
 
 
-def test_five_theme_palettes_preserve_readable_surfaces():
-    assert len(THEMES) == 5
+def test_three_metallic_palettes_preserve_readable_surfaces():
+    assert set(THEMES) == {'armor','war','patriot'}
     for mode in ('dark', 'light'):
         colors = [palette(mode, key) for key in THEMES]
-        assert len({color['ACCENT'] for color in colors}) == 5
+        assert len({color['ACCENT'] for color in colors}) == 3
         assert all(color['PANEL'] != color['WHITE'] for color in colors)
-        assert len({color['BG'] for color in colors}) == 5
-        assert len({color['SIDEBAR'] for color in colors}) == 5
-        assert len({color['PANEL2'] for color in colors}) == 5
+        assert len({color['BG'] for color in colors}) == 3
+        assert len({color['SIDEBAR'] for color in colors}) == 3
+        assert len({color['PANEL2'] for color in colors}) == 3
         for color in colors:
             assert len(set(color.values())) == len(color)
             assert _contrast(color['WHITE'], color['PANEL2']) >= 4.5
             assert _contrast(color['MUTED'], color['PANEL']) >= 4.5
             assert _contrast(color['ACCENT_FG'], color['ACCENT']) >= 4.5
+            assert _contrast(color['ACCENT_FG'], color['ACTIVE_ACCENT']) >= 4.5
+
+
+def test_old_theme_preferences_are_mapped_to_three_new_choices():
+    assert normalize_theme('rog') == 'patriot'
+    assert normalize_theme('graphite') == 'war'
+    assert normalize_theme('cyber') == 'armor'
 
 
 def _contrast(first: str, second: str) -> float:

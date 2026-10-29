@@ -45,9 +45,9 @@ if [[ -n "${OSREVIEW_APPLE_DEVELOPER_ID:-}" ]]; then
 fi
 
 cp installer/macos/README_MAC.txt "$stage/LEIA-ME.txt"
-output="release/OSReview-0.9.1-rc.4-macOS-${arch}-NAO-NOTARIZADO.dmg"
+output="release/OSReview-0.9.1-rc.5-macOS-${arch}-NAO-NOTARIZADO.dmg"
 for attempt in 1 2 3; do
-  if hdiutil create -volname 'OSReview 0.9.1 RC4' -srcfolder "$stage" -ov -format UDZO "$output"; then
+  if hdiutil create -volname 'OSReview 0.9.1 RC5' -srcfolder "$stage" -ov -format UDZO "$output"; then
     break
   fi
   if [[ "$attempt" -eq 3 ]]; then

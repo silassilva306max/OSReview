@@ -19,6 +19,7 @@ from tkinter.scrolledtext import ScrolledText
 from typing import Any
 
 from osreview import __version__
+from osreview.ui_metal import MetalStrip
 from osreview.services.benchmark import timed_benchmark, BenchmarkCancelled
 from osreview.services.configuration import ConfigStore, configure_system_startup, get_system_startup_status
 from osreview.services.diagnostics import DiagnosticsEngine
@@ -54,7 +55,16 @@ YELLOW = '#F2C16D'
 ACCENT = '#75A9BD'
 ACCENT_FG = '#08121A'
 ACTIVE_ACCENT = '#A9B8C5'
+METAL_HI = '#DCEAF1'
+METAL_LO = '#41535F'
+GLOW = '#8BDCE8'
+SHADOW = '#070B10'
 FONT = 'Segoe UI'
+
+
+def material_palette():
+    return {key: globals()[key] for key in
+            ('PANEL', 'ACCENT', 'RED', 'METAL_HI', 'METAL_LO', 'GLOW', 'SHADOW')}
 
 
 def ui_label(parent, text='', size=11, color=WHITE, bold=False, **kwargs):
@@ -277,7 +287,9 @@ class OSReviewApp(tk.Tk):
             outer = tk.Frame(metric_row, bg=PANEL, width=150, highlightbackground=EDGE, highlightthickness=1)
             outer.pack(side='left', fill='both', expand=True, padx=5)
             outer.pack_propagate(False)
-            ui_label(outer, title, 9, MUTED, bold=True).pack(anchor='w', padx=14, pady=(10, 3))
+            trim = MetalStrip(outer, material_palette, role='glow' if key in ('ram', 'gpu') else 'accent', height=4)
+            trim.pack(fill='x')
+            ui_label(outer, title, 9, MUTED, bold=True).pack(anchor='w', padx=14, pady=(7, 3))
             val = ui_label(outer, '—', 19, color, bold=True)
             val.pack(anchor='w', padx=14)
             detail = ui_label(outer, 'Aguardando...', 9, MUTED)
@@ -289,7 +301,7 @@ class OSReviewApp(tk.Tk):
             bar.pack(fill='x', padx=14, pady=(0, 11))
             self.metrics[key] = (val, detail, bar)
             target = 'hardware' if key == 'gpu' else 'diagnostics'
-            for widget in (outer, val, detail, bar):
+            for widget in (outer, trim, val, detail, bar):
                 widget.bind('<Button-1>', lambda _evt, t=target: self.switch(t))
         metric_row.bind('<Configure>', self._resize_metric_cards)
 
@@ -331,6 +343,7 @@ class OSReviewApp(tk.Tk):
 
     def _panel(self, parent, title, subtitle=''):
         panel = tk.Frame(parent, bg=PANEL, highlightbackground=EDGE, highlightthickness=1)
+        MetalStrip(panel, material_palette, height=4).pack(fill='x')
         ui_label(panel, title, 13, WHITE, bold=True).pack(anchor='w', padx=16, pady=(14, 4))
         if subtitle:
             ui_label(panel, subtitle, 9, MUTED, wraplength=540, justify='left').pack(anchor='w', padx=16, pady=(0, 7))
@@ -624,6 +637,7 @@ class OSReviewApp(tk.Tk):
         head=tk.Frame(popup,bg=BG);head.pack(fill='x',padx=16,pady=8)
         ui_label(head,'EVENTOS DO WINDOWS • ERROS E CRÍTICOS',13,WHITE,True,bg=BG).pack(side='left')
         ui_button(head,'Fechar • Esc',popup.destroy).pack(side='right')
+        MetalStrip(popup,material_palette,height=5).pack(fill='x',padx=16,pady=(0,8))
         search=tk.Frame(popup,bg=BG);search.pack(fill='x',padx=16,pady=(0,8))
         ui_label(search,'Buscar em:',10,MUTED,bg=BG).pack(side='left')
         ttk.Combobox(search,textvariable=self.event_search_engine,values=list(SEARCH_ENGINES),

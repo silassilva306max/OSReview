@@ -5,6 +5,7 @@ import math
 from tkinter import ttk
 from typing import Any
 from osreview import app as base
+from osreview.ui_metal import MetalStrip
 
 
 def fmt(value, unit: str = '') -> str:
@@ -57,8 +58,9 @@ class SpecCards(tk.Frame):
         for card in cards:
             panel=tk.Frame(self.body,bg=base.PANEL,highlightbackground=base.EDGE,highlightthickness=1)
             panel.pack(fill='x',padx=7,pady=6)
+            MetalStrip(panel,base.material_palette,height=4).pack(fill='x')
             tk.Label(panel,text=card.get('title','COMPONENTE'),bg=base.PANEL,fg=base.WHITE,
-                anchor='w',font=(base.FONT,12,'bold')).pack(fill='x',padx=16,pady=(12,5))
+                anchor='w',font=(base.FONT,12,'bold')).pack(fill='x',padx=16,pady=(8,5))
             if card.get('hint'):
                 tk.Label(panel,text=card['hint'],bg=base.PANEL,fg=base.MUTED,anchor='w',
                     wraplength=860,justify='left',font=(base.FONT,9)).pack(fill='x',padx=16,pady=(0,5))
@@ -94,6 +96,7 @@ class SpecCards(tk.Frame):
         tk.Label(bar,text='INFORMAÇÕES DETALHADAS',bg=base.BG,fg=base.WHITE,
                  font=(base.FONT,14,'bold')).pack(side='left')
         base.ui_button(bar,'Fechar • Esc',popup.destroy).pack(side='right')
+        MetalStrip(popup,base.material_palette,height=5).pack(fill='x',padx=16,pady=(0,8))
         cards=SpecCards(popup,allow_expand=False)
         cards.pack(fill='both',expand=True,padx=14,pady=(0,14))
         self.expanded_cards=cards
@@ -392,9 +395,13 @@ class SpeedGauge(tk.Frame):
         c=self.canvas;c.delete('all')
         w=max(190,c.winfo_width());cx=w/2;cy=91;r=64
         box=(cx-r,cy-r,cx+r,cy+r)
-        c.create_arc(*box,start=210,extent=-240,style='arc',outline=base.EDGE,width=12)
+        c.create_arc(*box,start=210,extent=-240,style='arc',outline=base.SHADOW,width=18)
+        c.create_arc(*box,start=210,extent=-240,style='arc',outline=base.METAL_LO,width=15)
+        c.create_arc(*box,start=210,extent=-240,style='arc',outline=base.EDGE,width=10)
+        c.create_arc(*box,start=210,extent=-65,style='arc',outline=base.METAL_HI,width=2)
         if self.needle>0:
-            c.create_arc(*box,start=210,extent=-240*self.needle,style='arc',outline=self.color,width=12)
+            c.create_arc(*box,start=210,extent=-240*self.needle,style='arc',outline=base.GLOW,width=12)
+            c.create_arc(*box,start=210,extent=-240*self.needle,style='arc',outline=self.color,width=8)
         for i in range(11):
             angle=math.radians(210-24*i)
             inner=47 if i%2==0 else 51
@@ -406,8 +413,11 @@ class SpeedGauge(tk.Frame):
             c.create_text(cx+76*math.cos(angle),cy-76*math.sin(angle),
                           text=f'{self.scale*i/4:g}',fill=base.MUTED,font=(base.FONT,8))
         angle=math.radians(210-240*self.needle)
+        c.create_line(cx+1,cy+2,cx+43*math.cos(angle)+1,cy-43*math.sin(angle)+2,
+                      fill=base.SHADOW,width=6,capstyle='round')
         c.create_line(cx,cy,cx+42*math.cos(angle),cy-42*math.sin(angle),
                       fill=self.color,width=3,capstyle='round')
+        c.create_oval(cx-7,cy-7,cx+7,cy+7,fill=base.GLOW,outline='')
         c.create_oval(cx-5,cy-5,cx+5,cy+5,fill=self.color,outline='')
         c.create_text(cx,116,text=self.label,fill=base.MUTED,font=(base.FONT,10,'bold'))
         c.create_text(cx,144,text=f'{self.current:,.1f} Mbps' if self.current is not None else '— Mbps',

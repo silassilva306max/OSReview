@@ -1,4 +1,4 @@
-OSReview v0.9.1 RC4 — macOS Intel e Apple Silicon
+OSReview v0.9.1 RC5 — macOS Intel e Apple Silicon
 
 1. Abra a imagem .dmg e dê duplo clique em "Instalar OSReview.app".
 2. Escolha a pasta e marque as opções desejadas (atalho e início no login).

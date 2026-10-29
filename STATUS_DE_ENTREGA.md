@@ -71,3 +71,8 @@
 - Isolar consultas WMI/COM do processo gráfico: o log local registrou exceção nativa de acesso durante consulta de GPU, apesar da janela ter aberto.
 - Validar a instalação interativa dos DMGs Intel e Apple Silicon em Macs físicos.
 - Validar visualmente todos os módulos e concluir as melhorias funcionais extensas do prompt mestre antes de chamar a versão de 1.0.
+# RC5 em preparação — 29/10/2026
+
+- Corrigido o teste Speedtest.net na interface Windows sem console e revisada a duração das medições de download e upload. Uma medição real pelo código fonte concluiu com 73,14 Mbps de download, 62,83 Mbps de upload e 70 ms de ping em uma conexão Ethernet de 100 Mbps.
+- Os temas foram reduzidos a três: Armadura Mark III, Máquina de Combate e Patriota de Ferro, cada um com paleta própria em modo claro e escuro, detalhes metálicos e medidores redesenhados. As imagens de referência fornecidas pelo usuário não entram no repositório nem nos pacotes.
+- Validação do código fonte: 159 testes aprovados e 1 ignorado, além de 21 telas em quatro resoluções e os três temas em ambos os modos. Build, Avast e publicação RC5 ainda pendentes nesta etapa.

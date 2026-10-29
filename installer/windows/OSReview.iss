@@ -1,7 +1,7 @@
 ; OSReview — INSTALADOR FINAL (independente de interpretes externos e sem download de runtime no cliente)
 ; Gerar apenas DEPOIS de compilar o projeto em Windows x64.
 #define AppName "OSReview"
-#define AppVersion "0.9.1-rc.4"
+#define AppVersion "0.9.1-rc.5"
 #define AppExe "OSReview.exe"
 
 [Setup]

@@ -8,12 +8,15 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import ipaddress
 import json
+import math
+import os
 import platform
 import re
 import shutil
 import socket
 import statistics
 import subprocess
+import sys
 import time
 from typing import Any
 
@@ -451,8 +454,48 @@ def compare_public_dns() -> dict:
             'note':'Latência pontual de DNS, não velocidade de download. Não altera o DNS; em redes com AD, VPN ou DNS corporativo, consulte o administrador antes de modificar a configuração.'}
 
 
+_SILENT_STREAMS = {}
+
+
+class _SilentConsoleStream:
+    """Give speedtest-cli its own file descriptor without closing ours."""
+
+    encoding = 'utf-8'
+
+    def __init__(self):
+        self._file = open(os.devnull, 'w', encoding='utf-8')
+
+    @property
+    def closed(self):
+        return self._file.closed
+
+    def fileno(self):
+        return os.dup(self._file.fileno())
+
+    def write(self, text):
+        return self._file.write(text)
+
+    def flush(self):
+        self._file.flush()
+
+    def isatty(self):
+        return False
+
+
+def _ensure_speedtest_streams() -> None:
+    """speedtest-cli expects fileno(), even in a PyInstaller windowed app."""
+    for name in ('stdout', 'stderr'):
+        if getattr(sys, name) is None:
+            stream = _SILENT_STREAMS.get(name)
+            if stream is None or stream.closed:
+                stream = _SilentConsoleStream()
+                _SILENT_STREAMS[name] = stream
+            setattr(sys, name, stream)
+
+
 def _speedtest_ookla(progress=None, duration_s: int = 10) -> dict:
     """Speedtest.net via speedtest-cli Python library, bundled in the compiled app."""
+    _ensure_speedtest_streams()
     import speedtest  # optional library installed through requirements.txt
     if progress: progress('preparing', 0., 0.)
     test = speedtest.Speedtest(secure=True, timeout=8)
@@ -461,30 +504,29 @@ def _speedtest_ookla(progress=None, duration_s: int = 10) -> dict:
     test.config['length']['upload'] = duration_s
     if progress: progress('download', 0., 0.)
     def measure(stage, operation):
-        values=[]
         started=time.monotonic()
         last_update=[started]
-        while len(values)<4 and (not values or time.monotonic()-started<duration_s):
-            def tick(index,total,start=False,end=False):
-                now=time.monotonic()
-                if progress and end and now-last_update[0]>=.15:
-                    last_update[0]=now
-                    progress(stage, values[-1] if values else 0.,
-                             min(.95,(now-started)/duration_s))
-            values.append(operation(callback=tick)/1e6)
-        return statistics.median(values),len(values)
-    download_mbps,down_samples=measure('download',test.download)
+        def tick(index,total,start=False,end=False):
+            now=time.monotonic()
+            if progress and now-last_update[0]>=.15:
+                last_update[0]=now
+                progress(stage,0.,min(.95,(now-started)/duration_s))
+        value=operation(callback=tick)/1e6
+        if not math.isfinite(value) or value<=0:
+            raise OSError(f'{stage}: servidor não forneceu uma medição válida')
+        return value
+    download_mbps=measure('download',test.download)
     if progress: progress('download', download_mbps, 1.)
     if progress: progress('upload', 0., 0.)
-    upload_mbps,up_samples=measure('upload',lambda callback:test.upload(callback=callback,pre_allocate=False))
+    upload_mbps=measure('upload',lambda callback:test.upload(callback=callback,pre_allocate=False))
     if progress: progress('upload', upload_mbps, 1.)
     ping_ms = (test.results.ping if getattr(test, 'results', None) else None)
     if progress: progress('complete', 0., 1.)
     return {'ok':True, 'download_mbps':round(download_mbps,2),
             'upload_mbps':round(upload_mbps,2), 'ping_ms': ping_ms,
             'server':'Speedtest.net (cliente integrado)',
-            'download_samples':down_samples,'upload_samples':up_samples,
-            'note':f'Medição sustentada com meta de {duration_s} s por sentido e mediana das passagens. O tráfego pode chegar a vários GB em link rápido; não certifica a banda contratada.'}
+            'download_samples':1,'upload_samples':1,
+            'note':f'Medição agregada com meta de {duration_s} s por sentido. O tráfego pode chegar a vários GB em link rápido; não certifica a banda contratada.'}
 
 
 def _speedtest_cloudflare(progress=None, duration_s: int = 10) -> dict:

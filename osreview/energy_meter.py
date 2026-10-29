@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import tkinter as tk
 from . import app as base
+from .ui_metal import MetalStrip
 
 
 class SensorMeter(tk.Frame):
     def __init__(self, master, title: str):
         super().__init__(master, bg=base.PANEL, highlightthickness=1,
                          highlightbackground=base.EDGE)
+        MetalStrip(self,base.material_palette,role='glow',height=4).pack(fill='x')
         self.title_label=tk.Label(self,text=title,bg=base.PANEL,fg=base.MUTED,
                                   font=(base.FONT,10,'bold'))
         self.title_label.pack(anchor='w',padx=12,pady=(7,0))

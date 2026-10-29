@@ -40,9 +40,10 @@ from osreview.services.isp_lookup import fetch_isp
 from osreview.services.background_activity import collect_background_activity
 from osreview.services.collection_integrity import diagnose_collection
 from osreview.ui_cards import (SpecCards, SpeedGauge, hardware_cards, board_cards, network_cards, power_cards, activity_cards, local_devices_cards)
-from osreview.ui_theme import THEMES, palette
+from osreview.ui_theme import THEMES, normalize_theme, palette
+from osreview.ui_metal import MetalStrip
 
-THEME_KEYS = tuple(palette('dark', 'graphite'))
+THEME_KEYS = tuple(palette('dark', 'armor'))
 
 
 def pretty(obj: Any) -> str:
@@ -149,14 +150,16 @@ class OSReviewAppV5(base.OSReviewApp):
                          highlightthickness=1,cursor='hand2')
             box.grid(row=i//4,column=i%4,sticky='nsew',padx=4,pady=4)
             self.dash_sensor_boxes.append(box)
-            base.ui_label(box,title,9,base.MUTED,True).pack(anchor='w',padx=10,pady=(7,2))
+            trim=MetalStrip(box,base.material_palette,role='glow' if 'GPU' in title else 'accent',height=4)
+            trim.pack(fill='x')
+            base.ui_label(box,title,9,base.MUTED,True).pack(anchor='w',padx=10,pady=(5,2))
             val=base.ui_label(box,'Aguardando...',15,base.BLUE,True)
             val.pack(anchor='w',padx=10)
             desc=base.ui_label(box,'Clique para detalhes',8,base.MUTED,wraplength=180,justify='left')
             desc.pack(anchor='w',padx=10,pady=(1,7))
             self.dash_sensor_values[key]=val
             self.dash_sensor_subtitles[key]=desc
-            for w in (box,val,desc):
+            for w in (box,trim,val,desc):
                 w.bind('<Button-1>',lambda _e:self.switch('power'))
         for i in range(4):self.dash_sensor_area.grid_columnconfigure(i,weight=1)
 
@@ -184,6 +187,7 @@ class OSReviewAppV5(base.OSReviewApp):
         logo = tk.Frame(sidebar, bg=base.SIDEBAR)
         logo.pack(side='top', fill='x', pady=(12, 2))
         base.ui_label(logo, '●  OSReview', 21, base.WHITE, bold=True, bg=base.SIDEBAR).pack(anchor='w', padx=17)
+        MetalStrip(sidebar,base.material_palette,role='glow',height=4).pack(side='top',fill='x',padx=16,pady=(1,7))
         base.ui_label(sidebar, 'SYSTEM INTELLIGENCE  v'+__version__, 8, base.MUTED,
                       bg=base.SIDEBAR).pack(side='top', anchor='w', padx=20, pady=(0, 10))
         shell = tk.Frame(sidebar, bg=base.SIDEBAR)
@@ -227,6 +231,8 @@ class OSReviewAppV5(base.OSReviewApp):
         base.ui_button(controls, 'Sair do OSReview', self.exit_app, True).pack(side='right', padx=(6, 0))
         base.ui_button(controls, '☾ / ☀', self.toggle_theme).pack(side='right', padx=6)
         base.ui_button(controls, '▣ Modo compacto', lambda: self.set_compact(True)).pack(side='right', padx=6)
+        MetalStrip(self.main_body,base.material_palette,height=6).pack(
+            fill='x',padx=23,pady=(0,9),after=controls)
 
     def _page_v5(self, name, title, subtitle):
         return self._page(name, title, subtitle)
@@ -481,7 +487,7 @@ class OSReviewAppV5(base.OSReviewApp):
                            activebackground=base.PANEL,activeforeground=base.WHITE).pack(side='left',padx=14)
         palette_row=tk.Frame(panel,bg=base.PANEL);palette_row.pack(fill='x',padx=14,pady=(0,8))
         base.ui_label(palette_row,'Paleta:',10,base.MUTED).pack(side='left',padx=(5,8))
-        self.accent_var=tk.StringVar(value=self.config_store.data.get('accent_theme','graphite'))
+        self.accent_var=tk.StringVar(value=normalize_theme(self.config_store.data.get('accent_theme','armor')))
         choices=[f'{key} · {value[0]}' for key,value in THEMES.items()]
         self.accent_choice=ttk.Combobox(palette_row,values=choices,state='readonly',width=28)
         self.accent_choice.set(next((choice for choice in choices if choice.startswith(self.accent_var.get()+' ·')),choices[0]))
@@ -505,6 +511,7 @@ class OSReviewAppV5(base.OSReviewApp):
     def _build_compact(self):
         self.compact=tk.Frame(self,bg=base.BG)
         bar=tk.Frame(self.compact,bg=base.PANEL);bar.pack(fill='x',padx=12,pady=(12,8))
+        MetalStrip(bar,base.material_palette,height=5).pack(side='top',fill='x')
         base.ui_label(bar,'● OSReview  |  Mini painel',14,base.WHITE,True).pack(side='left',padx=8,pady=9)
         base.ui_button(bar,'Abrir completo',lambda:self.set_compact(False)).pack(side='right',padx=6,pady=4)
         inner=tk.Frame(self.compact,bg=base.BG);inner.pack(fill='both',expand=True,padx=14,pady=6)
@@ -512,6 +519,7 @@ class OSReviewAppV5(base.OSReviewApp):
         for i,(key,title) in enumerate([('cpu','CPU'),('ram','RAM'),('temp','Temperatura CPU'),('gpu','GPU'),('net','Rede')]):
             box=tk.Frame(inner,bg=base.PANEL,highlightthickness=1,highlightbackground=base.EDGE)
             box.grid(row=i//2,column=i%2,sticky='nsew',padx=5,pady=5)
+            MetalStrip(box,base.material_palette,role='glow' if key=='gpu' else 'accent',height=4).pack(fill='x')
             base.ui_label(box,title,9,base.MUTED).pack(anchor='w',padx=11,pady=(9,2))
             label=base.ui_label(box,'Indisponível',14,base.BLUE,True)
             label.pack(anchor='w',padx=11,pady=(0,9))
@@ -526,7 +534,8 @@ class OSReviewAppV5(base.OSReviewApp):
         self.popup.configure(bg=base.EDGE)
         surface=tk.Frame(self.popup,bg=base.PANEL,highlightbackground=base.EDGE,highlightthickness=1)
         surface.pack(fill='both',expand=True,padx=1,pady=1)
-        base.ui_label(surface,'●  OSReview — Status atual',12,base.WHITE,True).pack(anchor='w',padx=14,pady=(11,7))
+        MetalStrip(surface,base.material_palette,role='glow',height=5).pack(fill='x')
+        base.ui_label(surface,'●  OSReview — Status atual',12,base.WHITE,True).pack(anchor='w',padx=14,pady=(8,7))
         self.hover_values={}
         for k,caption in [('cpu','CPU'),('ram','Memória RAM'),('temp','Temperatura CPU'),
                           ('gpu','GPU'),('disk','Armazenamento'),('net','Rede ↓/↑')]:
@@ -1188,8 +1197,7 @@ class OSReviewAppV5(base.OSReviewApp):
 
     def apply_theme(self, mode='dark', accent=None, save=True):
         mode='light' if mode=='light' else 'dark'
-        accent=accent or self.config_store.data.get('accent_theme','graphite')
-        if accent not in THEMES:accent='graphite'
+        accent=normalize_theme(accent or self.config_store.data.get('accent_theme','armor'))
         old={k:getattr(base,k) for k in THEME_KEYS}
         new=palette(mode,accent)
         mapping={old[k].lower():new[k] for k in old}
@@ -1229,6 +1237,9 @@ class OSReviewAppV5(base.OSReviewApp):
         except tk.TclError:pass
         if getattr(self,'theme_var',None):self.theme_var.set(mode)
         if getattr(self,'accent_var',None):self.accent_var.set(accent)
+        if getattr(self,'accent_choice',None):
+            self.accent_choice.set(next(choice for choice in self.accent_choice['values']
+                                        if choice.startswith(accent+' · ')))
         if save:
             self.config_store.set('theme',mode)
             self.config_store.set('accent_theme',accent)
@@ -1268,6 +1279,8 @@ class OSReviewAppV5(base.OSReviewApp):
             self._recolor_combobox_lists(child,colors)
 
     def _recolor_widget(self, widget, mapping):
+        if isinstance(widget,MetalStrip):
+            widget.draw()
         if widget.winfo_class() not in ('TCombobox','Treeview','Treeview.Heading'):
             for key in ('background','foreground','activebackground','activeforeground',
                         'selectcolor','selectforeground','disabledforeground',

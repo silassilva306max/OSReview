@@ -1,16 +1,20 @@
-# OSReview v0.9.1 RC4
+# OSReview v0.9.1 RC5
 
 Sistema de diagnóstico de hardware, processos, sensores, rede, eventos, energia e FPS.
 
-Na versão 0.9.1 RC4, a interface oferece cinco temas completos nos modos claro e escuro
-(Armadura, Máquina de Combate, ROG, Grafite e Ciber),
+Na versão 0.9.1 RC5, a interface oferece três temas completos nos modos claro e escuro:
+Armadura Mark III (vermelho e ouro), Máquina de Combate (grafite e titânio) e
+Patriota de Ferro (azul e prata). As superfícies, medidores e cartões têm detalhes
+metálicos desenhados no próprio aplicativo; as fotos de referência não são distribuídas.
 benchmarks locais de CPU/RAM com gráfico e histórico, e controles confirmados de
 processos e serviços de terceiros. A metodologia dos testes está em
 `METODOLOGIA_BENCHMARK.md`.
 
 O diagnóstico de rede mostra a interface principal e a velocidade negociada,
 separadas do teste de Internet. O medidor vai de 0 a 1000 Mbps por padrão e a
-medição oferece 10 ou 20 segundos por sentido. Eventos do Windows e cartões
+medição oferece 10 ou 20 segundos por sentido. O motor Speedtest.net foi corrigido
+para o aplicativo Windows sem console e executa uma medição agregada por direção.
+Eventos do Windows e cartões
 detalhados podem ser ampliados em tela cheia.
 
 Na tela **Eventos / IA**, selecione um erro e clique **Pesquisar erro selecionado**
@@ -24,7 +28,7 @@ se essa preferência estiver ativada. A tela Atualizações baixa o instalador
 somente por escolha do usuário, confere tamanho e SHA-256 e abre o assistente
 após confirmação de que o Avast terminou sua análise. A instalação anterior é
 atualizada na mesma pasta pelo mesmo AppId do Inno Setup. Cópias portáteis não
-são sobrescritas por esse instalador. Quem usa 0.9.0 precisa instalar 0.9.1 RC4
+são sobrescritas por esse instalador. Quem usa 0.9.0 precisa instalar 0.9.1 RC5
 uma vez para receber os próximos avisos no aplicativo.
 
 ## Distribuição para usuário final
@@ -43,7 +47,7 @@ O sensor LibreHardwareMonitorLib é biblioteca de terceiros, com licença MPL 2.
 e créditos na interface. A presença de assinatura válida deve ser verificada
 por Authenticode (Windows), Developer ID e notarização (Mac).
 
-**Disponibilidade:** a Release `v0.9.1-rc.4` contém instalador Windows x64,
+**Disponibilidade:** a Release `v0.9.1-rc.5` contém instalador Windows x64,
 ZIP portátil e DMGs macOS para Intel e Apple Silicon, com arquivos SHA-256.
 Os três builds passaram nos runners nativos do GitHub Actions. A instalação
 interativa em Mac físico ainda precisa de validação. Sensores exclusivos do

@@ -1,53 +1,60 @@
-"""Complete, readable color palettes for the desktop interface."""
+"""Three complete, high contrast metallic palettes for the desktop UI.
+
+The attached character photographs are color references only. No third-party
+image, logo or character artwork is bundled in the public application.
+"""
 from __future__ import annotations
 
 THEMES = {
-    'armor': ('Armadura · vermelho e dourado', '#E9A84E', '#A64139', '#F8CE76'),
-    'war': ('Máquina de Combate · aço e azul', '#83B0CE', '#356C9E', '#B9CEDA'),
-    'rog': ('ROG · violeta e magenta', '#D579D4', '#944795', '#ECA5E2'),
-    'graphite': ('Grafite · preto e cinza', '#75A9BD', '#346F83', '#A9B8C5'),
-    'cyber': ('Ciber · verde e turquesa', '#59D5B8', '#177A69', '#A2E9D1'),
+    'armor': ('Armadura Mark III · vermelho e ouro', '#E5A93A', '#A63B30', '#FBD47B'),
+    'war': ('Máquina de Combate · grafite e titânio', '#AFC1C5', '#476570', '#F2F8F5'),
+    'patriot': ('Patriota de Ferro · azul e prata', '#83BDEB', '#2E639B', '#E6F4FC'),
 }
+_LEGACY = {'rog': 'patriot', 'graphite': 'war', 'cyber': 'armor'}
 
-# Each dark theme changes the complete shell, surfaces, borders and status
-# colors. Light themes retain strong contrast while tinting the same surfaces.
+_KEYS = ('BG', 'SIDEBAR', 'PANEL', 'PANEL2', 'EDGE', 'WHITE', 'MUTED',
+         'RED', 'GREEN', 'BLUE', 'PURPLE', 'YELLOW',
+         'METAL_HI', 'METAL_LO', 'GLOW', 'SHADOW')
+
 _DARK = {
-    'armor': ('#130F12', '#21151A', '#291B20', '#38262B', '#67434A',
-              '#FFF6EC', '#CBB5AE', '#FF8279', '#83D6AD', '#8EC2E8', '#D8A6D6', '#F3C873'),
-    'war': ('#10161D', '#19222C', '#222D38', '#2D3B47', '#536676',
-            '#F2F6F8', '#B7C5CE', '#F28A83', '#83D3B8', '#92C7E8', '#BEB5DC', '#E9CF88'),
-    'rog': ('#130F1B', '#1E1629', '#271D35', '#352742', '#674B75',
-            '#FBF4FC', '#C9B7D1', '#F98596', '#83D8C4', '#A7BFF0', '#E4A9EA', '#F3CD81'),
-    'graphite': ('#0C1119', '#121A25', '#171F2B', '#202B39', '#324052',
-                 '#F4F7FB', '#A6B7C9', '#FF7772', '#58D7B0', '#79BBF0', '#C2A7F5', '#F5C971'),
-    'cyber': ('#0B1516', '#112323', '#172B2B', '#213838', '#3A6260',
-              '#EEFBF6', '#A9C9C1', '#F78E7D', '#79DEB0', '#85CEDE', '#C8B5EA', '#E9D18C'),
+    'armor': ('#13090D', '#230C14', '#2D121B', '#421925', '#78313B',
+              '#FFF3DF', '#D3B9A9', '#FF5552', '#76E7C4', '#8AE7F5', '#C899D1', '#FFD36C',
+              '#FFE7A5', '#78401C', '#A9F6FF', '#080507'),
+    'war': ('#0B1013', '#131C21', '#1D292F', '#2A3A42', '#5E727B',
+            '#F1F7F7', '#B3C4C9', '#FF695E', '#7BD9B8', '#A1CEE0', '#BFB5CE', '#E7CC91',
+            '#E4F2F2', '#455963', '#FF8C68', '#05080A'),
+    'patriot': ('#0B1323', '#132039', '#1A2C49', '#274261', '#577A9D',
+                '#F4F9FC', '#B8CADE', '#F16C74', '#7DDCC6', '#8CC8F6', '#BDB8E1', '#E8D7A2',
+                '#EAF7FD', '#466C96', '#B5F3FF', '#060B17'),
 }
 _LIGHT = {
-    'armor': ('#FAF5F1', '#F1E7DF', '#FFFDFC', '#F5EBE3', '#D9C8BE',
-              '#30252A', '#695957', '#B43E3D', '#196A52', '#245F8D', '#78518A', '#806015'),
-    'war': ('#F2F6F8', '#E5EDF2', '#FCFEFF', '#E9F0F4', '#C5D3DC',
-            '#24343F', '#556B77', '#AF454A', '#176954', '#245F8A', '#70518B', '#7C5C17'),
-    'rog': ('#F8F4FA', '#EFE7F3', '#FEFCFF', '#F1EAF5', '#D9C7DF',
-            '#30263B', '#67576E', '#B2435E', '#176A58', '#315F94', '#80458C', '#806017'),
-    'graphite': ('#F2F5F9', '#E8EDF4', '#FDFEFF', '#E8EEF5', '#CCD6E2',
-                 '#172638', '#526477', '#AA343C', '#08735F', '#1C639D', '#74519A', '#846009'),
-    'cyber': ('#F1F8F6', '#E3F0EB', '#FBFFFD', '#E8F4EF', '#BDD7CB',
-              '#1C3430', '#506F65', '#AA4740', '#086F55', '#286986', '#73558A', '#7B6416'),
+    'armor': ('#FAF0EA', '#F1DCD5', '#FFFAF4', '#F5E4D9', '#C99890',
+              '#3A1E25', '#72565A', '#B62F32', '#126E56', '#246C89', '#79548B', '#80601B',
+              '#FFF3CD', '#AC6956', '#168C9C', '#D5BBB2'),
+    'war': ('#EBF1F2', '#D8E3E5', '#FCFEFD', '#E5EDEF', '#8FA6AA',
+            '#1B2E34', '#52666B', '#AD4141', '#136A53', '#316B84', '#6E5784', '#785F22',
+            '#F4FAF8', '#647D83', '#B94A40', '#C0CDD0'),
+    'patriot': ('#ECF3FA', '#D9E7F3', '#FBFDFF', '#E1EDF8', '#9CB8CE',
+                '#18314F', '#566E88', '#B53E4E', '#126C58', '#266B9E', '#685787', '#7B641F',
+                '#F2FAFE', '#527EAA', '#3E9EC3', '#C0D4E5'),
 }
-_KEYS = ('BG', 'SIDEBAR', 'PANEL', 'PANEL2', 'EDGE', 'WHITE', 'MUTED',
-         'RED', 'GREEN', 'BLUE', 'PURPLE', 'YELLOW')
+
+
+def normalize_theme(theme: str) -> str:
+    theme = _LEGACY.get(theme, theme)
+    return theme if theme in THEMES else 'armor'
 
 
 def palette(mode: str, theme: str) -> dict[str, str]:
-    if theme not in THEMES:
-        theme = 'graphite'
+    theme = normalize_theme(theme)
     light = mode == 'light'
     colors = dict(zip(_KEYS, (_LIGHT if light else _DARK)[theme]))
     _, accent_dark, accent_light, secondary = THEMES[theme]
     colors.update({
         'ACCENT': accent_light if light else accent_dark,
-        'ACCENT_FG': '#FFFFFF' if light else '#18141A',
-        'ACTIVE_ACCENT': accent_dark if light else secondary,
+        'ACCENT_FG': '#FFFFFF' if light else
+                     {'armor': '#261211', 'war': '#102027', 'patriot': '#10253A'}[theme],
+        'ACTIVE_ACCENT': secondary if not light else
+                         {'armor': '#843427', 'war': '#34525D', 'patriot': '#28547E'}[theme],
     })
     return colors

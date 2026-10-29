@@ -7,6 +7,7 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk, messagebox
 from osreview import app as base
+from osreview.ui_metal import MetalStrip
 from osreview.services.sensor_triage import triage
 from osreview.services.sensor_analysis import is_real_temperature
 
@@ -28,6 +29,7 @@ class SensorExplorer(tk.Toplevel):
                  bg=base.BG,fg=base.WHITE).pack(anchor='w')
         tk.Label(header,text='A rolagem e a seleção não mudam enquanto o monitor atualiza ao fundo.',
                  font=('Segoe UI',10),bg=base.BG,fg=base.MUTED).pack(anchor='w')
+        MetalStrip(self,base.material_palette,role='glow',height=5).pack(fill='x',padx=16,pady=(0,7))
         controls = tk.Frame(self, bg=base.BG);controls.pack(fill='x',padx=16,pady=(4,10))
         tk.Button(controls,text='Capturar leitura mais recente',command=self.capture,bg=base.ACCENT,fg=base.ACCENT_FG,
                   relief='flat',padx=12,pady=8,cursor='hand2').pack(side='left')

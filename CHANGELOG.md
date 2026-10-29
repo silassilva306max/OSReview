@@ -1,3 +1,10 @@
+# v0.9.1 RC5 — teste de Internet e três temas metálicos
+
+- Corrigido o Speedtest.net na versão Windows sem console: a biblioteca volta a medir download e upload, mesmo quando a saída padrão da interface gráfica está ausente.
+- A duração escolhida é aplicada a uma passagem de download e uma de upload; resultados parciais não são marcados como válidos.
+- Os temas disponíveis agora são Armadura Mark III, Máquina de Combate e Patriota de Ferro. Cada um muda as superfícies claras e escuras do aplicativo, com gradientes, reflexos e medidores de aspecto metálico.
+- Preferências dos temas anteriores são convertidas para uma das três opções atuais.
+
 # v0.9.1 RC4 — pesquisa de eventos no navegador
 
 - Um erro ou evento crítico selecionado pode ser pesquisado diretamente na web, sem token de IA, pela tela normal ou ampliada de Eventos.
@@ -123,3 +130,9 @@
 - Motor de sensores pode tentar reconectar após ausência de ponte ou fim do processo.
 - Log periódico de contagem de sensores, temperaturas e potência (sem enviar valores ou dados pela Internet).
 - Proteção adicional contra erros de renderização de sensores na tela.
+# v0.9.1 RC5 — teste de Internet e três temas metálicos
+
+- Corrigido o erro `NoneType.fileno` do Speedtest.net no executável Windows sem console. O teste respeita uma passagem de 10 ou 20 segundos por direção; resultados inválidos continuam identificados como não validados.
+- Armadura Mark III, Máquina de Combate e Patriota de Ferro substituem as cinco paletas anteriores. Fundos, menu lateral, cartões, seletores, medidores, mini painel e janelas auxiliares seguem a combinação escolhida nos modos claro e escuro.
+- Adicionados detalhes de metal com gradientes, reflexos, bordas e profundidade feitos por Tk, sem incluir imagens de terceiros na distribuição.
+- Teste real no PC de desenvolvimento com Speedtest.net: 73,14 Mbps de download e 62,83 Mbps de upload, meta de 10 segundos por direção. Resultado pontual, sujeito a variação da rede.
