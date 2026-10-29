@@ -8,4 +8,6 @@
 - Removida uma cópia idêntica do documento de instruções do projeto. A metodologia de benchmark permanece documentada para que a pontuação possa ser interpretada corretamente.
 - Mantidas as melhorias da RC3: coleta de eventos corrigida, painéis ampliados, interface adaptável, medidores de até 1000 Mbps e instaladores Windows/macOS.
 
+Limitação conhecida: a medição de Internet depende dos provedores externos. Se eles recusarem a requisição ou falharem, o resultado é marcado como parcial ou indisponível; não representa velocidade validada.
+
 Pré-lançamento. O Setup Windows x64 não tem assinatura Authenticode e os DMGs macOS não têm notarização Apple. Aguarde a análise do Avast antes de executar o novo instalador Windows.

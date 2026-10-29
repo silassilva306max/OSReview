@@ -2,11 +2,14 @@
 
 ## Versão 0.9.1 RC4 — busca web de eventos e temas completos
 
+- Release pública: https://github.com/silassilva306max/OSReview/releases/tag/v0.9.1-rc.4. O workflow `40946595939` concluiu os três builds e a publicação. Os oito assets incluem Setup e ZIP portátil Windows x64, DMGs macOS Intel e Apple Silicon e seus quatro SHA-256; os hashes conferem com os digests publicados pelo GitHub.
+- O parser do atualizador reconheceu os metadados da Release RC4 real e selecionou o Setup Windows x64 oficial.
 - Eventos do Windows selecionados podem ser pesquisados sem token de IA em Google, Bing, DuckDuckGo ou Brave Search, no navegador padrão ou em navegador instalado. A URL contém apenas ID, origem e resumo local do erro; a mensagem original permanece local.
 - Armadura, Máquina de Combate, ROG, Grafite e Ciber agora mudam superfícies, barra lateral, cartões, bordas, gráficos, indicadores e janelas auxiliares nos modos claro/escuro. Menus de tempo do benchmark e da rede têm texto e lista com contraste corrigido.
 - Removido `PROMPT_MESTRE_CODEX.md`, cópia idêntica de `AGENTS.md`. `METODOLOGIA_BENCHMARK.md` foi mantido para explicar os resultados e permitir sua interpretação.
-- Suíte local: **156 testes aprovados, 1 ignorado**. Teste da interface em dez combinações de temas e 21 telas em quatro resoluções passou. Pacote Windows validado estaticamente; o executável RC4 ainda aguarda a análise final do Avast antes da execução local.
-- A restauração NuGet local não respondeu neste ambiente. O pacote RC4 foi montado com a ponte de sensores já compilada e verificada pelo SHA-256, sem alteração no código C#; o GitHub Actions fará o build completo. Setup local SHA-256 `2dcf0f57cf5c7dfd37c2b198dd237667b0aa151376d90a4df18e9033ee18462d`; portátil `c15e121ae45544b483a650afcdf8749b2a43185fd37b218411e1327cd63bebd1`.
+- Suíte local: **156 testes aprovados, 1 ignorado**. Teste da interface em dez combinações de temas e 21 telas em quatro resoluções passou. O usuário confirmou a análise pelo Avast do Setup final e, separadamente, do EXE local; `OSReview.exe --diagnostico` terminou com código 0 e gerou relatório de suporte. A interface RC4 instalada foi observada no Windows com o tema ROG aplicado a menu, painéis, bordas, medidores e seletores.
+- A restauração NuGet local não respondeu neste ambiente. O pacote local RC4 foi montado com a ponte de sensores já compilada e verificada pelo SHA-256, sem alteração no código C#; o build completo do GitHub Actions passou. Setup local SHA-256 `2dcf0f57cf5c7dfd37c2b198dd237667b0aa151376d90a4df18e9033ee18462d`; portátil `c15e121ae45544b483a650afcdf8749b2a43185fd37b218411e1327cd63bebd1`. Os arquivos da Release têm hashes diferentes por terem sido compilados no CI.
+- Limitação observada na interface instalada: o teste de Internet retornou leitura parcial e marcou a medição como não validada porque Speedtest.net falhou com `NoneType.fileno` e Cloudflare respondeu HTTP 403. A escala de 1000 Mbps e os tempos selecionáveis aparecem corretamente, mas esta amostra não comprova a vazão real da conexão.
 
 ## Versão 0.9.1 RC3 — eventos, rede e interface
 
