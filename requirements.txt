@@ -1,4 +1,4 @@
-psutil>=6.0,<9
+psutil>=7.2.2,<9
 platformdirs>=4.2,<6
 Pillow>=10,<13
 pystray==0.19.5
